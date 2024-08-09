@@ -124,7 +124,7 @@ contract ArbitrageBot is Ownable, OApp {
         emit DebugUint("Native Fee", nativeFee);
         emit DebugUint("LZ Token Fee", lzTokenFee);
 
-        // _lzSend(chainIds[0], payload, options, fee, payable(msg.sender));
+        _lzSend(chainIds[0], payload, options, fee, payable(msg.sender));
     }
 
     function addressToBytes32(address addr) public pure returns (bytes32) {

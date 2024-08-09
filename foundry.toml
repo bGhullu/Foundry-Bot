@@ -7,7 +7,9 @@ optimizer = true
 remappings = [
     "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts",
     "@layerzero/v2/packages/evm/oapp=lib/LayerZero-v2/packages/layerzero-v2/evm/oapp/contracts/oapp",
+    "@aave/contracts=lib/aave-v3-core/contracts",
+    "@uniswapV2/contracts=lib/v2-periphery/contracts",
+    "@uniswapV3/contracts=lib/v3-periphery/contracts",
 ]
-
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
