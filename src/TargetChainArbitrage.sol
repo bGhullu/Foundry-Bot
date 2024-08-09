@@ -17,15 +17,18 @@ interface IPankcakeRouter is IUniswapV2Router02 {}
 interface ISushiSwapRouter is IUniswapV2Router02 {}
 
 contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
+    using ECDSA for bytes32;
+
     error TargeContract__NotMainContractOrOwner();
     error TargeContract__InvalidAddress();
     error TargeContract__NotOwner();
     error TargeContract__CallerMustBeLendingPool();
 
-    using ECDSA for bytes32;
     IPool public lendingPool;
     address public mainContract;
     mapping(uint8 => address) public dexMapping;
+    mapping(uint8 => address) public bridgeMapping;
+
     modifier onlyMainOrOwner() {
         if (msg.sender != mainContract || msg.sender != owner()) {
             revert TargeContract__NotMainContractOrOwner();
@@ -36,14 +39,18 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     constructor(
         address _endpoint,
         address _lendingPool,
-        address[] memory _dexAddresses;
+        address[] memory _dexAddresses,
+        address[] memory _bridgeAddresses
     ) OApp(_lendingPool, msg.sender) Ownable(msg.sender) {
         if (_endpoint == address(0) || _lendingPool == address(0)) {
             revert TargeContract__InvalidAddress();
         }
         lendingPool = IPool(_lendingPool);
-        for (int256 i=0;i<_dexAddresses.length;i++) {
+        for (uint256 i = 0; i < _dexAddresses.length; i++) {
             dexMapping[i] = _dexAddresses[i];
+        }
+        for (uint256 i = 0; i < _bridgeAddresses.length; i++) {
+            bridgeMapping[i] = _bridgeAddresses[i];
         }
     }
 
@@ -62,6 +69,16 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             revert TargeContract__InvalidAddress();
         }
         dexMapping[dexId] = _dexAddrress;
+    }
+
+    function sexBridgeAddress(
+        uint8 bridgeId,
+        address _bridgeAddress
+    ) external onlyOwner {
+        if (_bridgeAddress == address(0)) {
+            revert TargeContract__InvalidAddress();
+        }
+        bridgeMapping[bridgeId] = _bridgeAddress;
     }
 
     function _lzReceive(
@@ -185,7 +202,5 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             );
 
         //Execute swap on designated DEXes and handle Bridging
-       
-    
     }
 }
