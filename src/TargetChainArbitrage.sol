@@ -120,12 +120,12 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     }
 
     function _lzReceive(
-        uint16 _srcChaindId,
+        Origin calldata _origin,
         bytes32 _guild,
-        bytes memory _payload,
+        bytes calldata _payload,
         address _executor,
-        bytes memory _extraData
-    ) internal {
+        bytes calldata _extraData
+    ) internal override {
         // Decode the payload
         (
             address[] memory tokens,
@@ -207,9 +207,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             );
 
             bytes memory options = abi.encode(uint16(1), uint256(200000));
+            uint nativeFee = msg.value;
+            uint lzTokenFee = 0;
             MessagingFee memory fee = MessagingFee({
-                nativeFee: 0,
-                lzTokenFee: 0
+                nativeFee: nativeFee,
+                lzTokenFee: lzTokenFee
             });
             _lzSend(
                 nextChainIds[0],
@@ -219,7 +221,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 payable(msg.sender)
             );
         } else {
-            emit CrossChainSync(_srcChaindId, _guild, "Arbitrage completed");
+            emit CrossChainSync(
+                uint16(_origin.srcEid),
+                _guild,
+                "Arbitrage completed"
+            );
         }
     }
 
