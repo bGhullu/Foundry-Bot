@@ -24,6 +24,26 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     error TargeContract__NotOwner();
     error TargeContract__CallerMustBeLendingPool();
 
+    event SwapExecuted(
+        address indexed dex,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    );
+    event BridgeExecuted(
+        address indexed bridge,
+        address token,
+        uint256 amount,
+        uint16 chainId
+    );
+    event FlashLoanRepaid(
+        address[] assets,
+        uint256[] amounts,
+        uint256[] premiums
+    );
+    event DexFunctionSet(address indexed dex, bytes4 functionSelector);
+    event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
+
     IPool public lendingPool;
     address public mainContract;
     mapping(address => bytes4) public dexFunctionMapping;
@@ -298,5 +318,87 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             )
         );
         require(success, "Bridge failed");
+    }
+
+    function swapOnUniswapV2(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        IUniswapV2Router02(dexRouterAddrss).swapExactTokenFortTokens(
+            amountIn,
+            1,
+            path,
+            address(this),
+            block.timestamp + 200
+        );
+    }
+
+    function swapOnUniswapV3(
+        address tokenIn,
+        address tokenOut,
+        uint24 fee,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+            .ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: fee,
+                recipient: address(this),
+                deadline: block.timestamp + 200,
+                amountIn: amountIn,
+                amountOutMinimum: 1,
+                sqrtPriceLimitX96: 0
+            });
+        ISwapRouter(dexRouterAddress).exactInputSingle(params);
+    }
+
+    function swapOnSushiSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        ISushiSwapRouter(dexRouterAddress).swapExactTokensForTokens(
+            amountIn,
+            1,
+            path,
+            address(this),
+            block.timestamp + 200
+        );
+    }
+
+    function swapOnPancakeSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        IPankcakeRouter(dexRouterAddress).swapExactTokensForTokens(
+            amountIn,
+            1,
+            path,
+            address(this),
+            block.timestamp + 200
+        );
     }
 }
