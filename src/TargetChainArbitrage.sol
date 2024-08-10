@@ -28,6 +28,8 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     address public mainContract;
     mapping(address => bytes4) public dexFunctionMapping;
     mapping(address => bytes4) public bridgeFunctionMapping;
+    mapping(address => bool) public authorizedDex;
+    mapping(address => bool) public authorizedBridge;
 
     modifier onlyMainOrOwner() {
         if (msg.sender != mainContract || msg.sender != owner()) {
@@ -75,6 +77,22 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         }
         bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
         emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
+    }
+
+    function authorizedDex(
+        address _dexAddress,
+        bool _status
+    ) external onlyOwner {
+        authorizedDex[_dexAddress] = _status;
+        emit DexAuthorized(_dexAddress, _status);
+    }
+
+    function authorizedBridge(
+        address _bridgeAddress,
+        bool _status
+    ) external onlyOwner {
+        authorizedBridge[_bridgeAddress] = _status;
+        emit BridgeAuthorized(_bridgeAddress, _status);
     }
 
     function _lzReceive(
@@ -218,6 +236,67 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             unchecked {
                 i++;
             }
+
+            _handleBridge(bridges, tokens, amounts, chainIds, recipient);
+
+            for (uint256 i = 0; i < assets.length; i++) {
+                uint256 amountOwing = amounts[i] + premiums[i];
+                IERC20(assets[i]).approve(address(lendingPool), amountOwing);
+                IERC20(assets[i]).transfer(lendingPool, amountOwing);
+            }
         }
+        emit FlashLoanRepaid(assets, amounts, premiums);
+        return true;
+    }
+
+    function _handleBridging(
+        address[] memory _bridges,
+        address[] memory _tokens,
+        uint256[] memory _amounts,
+        uint16[] memory _chainIds,
+        address _recipient
+    ) internal {
+        for (uint256 i = 0; i < _bridges.length; ) {
+            address bridgeAddress = _bridges[i];
+            if (bridgeAddress == address(0)) {
+                revert TargeContract__InvalidAddress();
+            }
+            _executeBridge(
+                bridgeAddress,
+                _tokens[i],
+                _amounts[i],
+                _chainIds[i],
+                _recipient
+            );
+            emit BridgeExecuted(
+                bridgeAddress,
+                _tokens[i],
+                _amounts[i],
+                _chainIds[i]
+            );
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function _executeBridge(
+        address _bridgeAddress,
+        address _token,
+        uint256 _amount,
+        uint16 _chainId,
+        address _recipient
+    ) internal {
+        bytes4 bridgeFunctionSelector = bridgeFunctionMapping[_bridgeAddress];
+        (bool success, ) = _bridgeAddress.call(
+            abi.encodeWithSelector(
+                bridgeFunctionSelector,
+                _token,
+                _amount,
+                _chainId,
+                _recipient
+            )
+        );
+        require(success, "Bridge failed");
     }
 }
