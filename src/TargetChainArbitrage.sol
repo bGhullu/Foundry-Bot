@@ -26,8 +26,8 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
 
     IPool public lendingPool;
     address public mainContract;
-    mapping(uint8 => address) public dexMapping;
-    mapping(uint8 => address) public bridgeMapping;
+    mapping(address => bytes4) public dexFunctionMapping;
+    mapping(address => bytes4) public bridgeFunctionMapping;
 
     modifier onlyMainOrOwner() {
         if (msg.sender != mainContract || msg.sender != owner()) {
@@ -46,12 +46,6 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             revert TargeContract__InvalidAddress();
         }
         lendingPool = IPool(_lendingPool);
-        for (uint256 i = 0; i < _dexAddresses.length; i++) {
-            dexMapping[i] = _dexAddresses[i];
-        }
-        for (uint256 i = 0; i < _bridgeAddresses.length; i++) {
-            bridgeMapping[i] = _bridgeAddresses[i];
-        }
     }
 
     function setMainContract(address _mainContractAddrs) external onlyOwner {
@@ -61,24 +55,26 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         mainContract = _mainContractAddrs;
     }
 
-    function setDexAddress(
-        uint8 dexId,
-        address _dexAddrress
+    function setDexFunction(
+        address _dexAddress,
+        bytes4 _functionSelector
     ) external onlyOwner {
-        if (_dex == address(0)) {
+        if (_dexAddress == address(0)) {
             revert TargeContract__InvalidAddress();
         }
-        dexMapping[dexId] = _dexAddrress;
+        dexFunctions[_dexAddress] = _functionSelector;
+        emit DexFunctionSet(_dexAddress, _functionSelector);
     }
 
-    function sexBridgeAddress(
-        uint8 bridgeId,
-        address _bridgeAddress
+    function setBridgeFunction(
+        address _bridgeAddress,
+        bytes4 _functionSelector
     ) external onlyOwner {
         if (_bridgeAddress == address(0)) {
             revert TargeContract__InvalidAddress();
         }
-        bridgeMapping[bridgeId] = _bridgeAddress;
+        bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
+        emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
     }
 
     function _lzReceive(
@@ -202,5 +198,26 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             );
 
         //Execute swap on designated DEXes and handle Bridging
+        for (uint256 i = 0; i < dexes.length; i++) {
+            address dexAddress = dexes[i];
+            if (dexAddress == address(0)) {
+                revert TargeContract__InvalidAddress();
+            }
+            bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
+            (bool success, bytes memory result) = address(this).delegatecall(
+                abi.encodeWithSelector(
+                    swapFunctionSelector,
+                    tokens[i],
+                    tokens[i + 1],
+                    amounts[i],
+                    dexAddress
+                )
+            );
+            require(success, "Swap failed");
+            emit SwapExecuted(dexAddress, tokens[i], tokens[i + 1], amounts[i]);
+            unchecked {
+                i++;
+            }
+        }
     }
 }
