@@ -6,7 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {OApp, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
+import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import "@aave/contracts/flashloan/interfaces/IFlashLoanReceiver.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
@@ -19,11 +19,13 @@ interface ISushiSwapRouter is IUniswapV2Router02 {}
 contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     using ECDSA for bytes32;
 
-    error TargeContract__NotMainContractOrOwner();
-    error TargeContract__InvalidAddress();
-    error TargeContract__NotOwner();
-    error TargeContract__CallerMustBeLendingPool();
-
+    error TargetContract__NotMainContractOrOwner();
+    error TargetContract__InvalidAddress();
+    error TargetContract__NotOwner();
+    error TargetContract__CallerMustBeLendingPool();
+    error TargetContract__UnauthorizedDex();
+    error TargetContract__UnauthorizedBridge();
+    event CrossChainSync(uint16 chainId, bytes32 syncId, string status);
     event SwapExecuted(
         address indexed dex,
         address tokenIn,
@@ -43,17 +45,19 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     );
     event DexFunctionSet(address indexed dex, bytes4 functionSelector);
     event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
+    event DexAuthorized(address indexed dex, bool status);
+    event BridgeAuthorized(address indexed bridge, bool status);
 
     IPool public lendingPool;
     address public mainContract;
     mapping(address => bytes4) public dexFunctionMapping;
     mapping(address => bytes4) public bridgeFunctionMapping;
-    mapping(address => bool) public authorizedDex;
-    mapping(address => bool) public authorizedBridge;
+    mapping(address => bool) public authorizedDexes;
+    mapping(address => bool) public authorizedBridges;
 
     modifier onlyMainOrOwner() {
         if (msg.sender != mainContract || msg.sender != owner()) {
-            revert TargeContract__NotMainContractOrOwner();
+            revert TargetContract__NotMainContractOrOwner();
         }
         _;
     }
@@ -65,14 +69,14 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address[] memory _bridgeAddresses
     ) OApp(_lendingPool, msg.sender) Ownable(msg.sender) {
         if (_endpoint == address(0) || _lendingPool == address(0)) {
-            revert TargeContract__InvalidAddress();
+            revert TargetContract__InvalidAddress();
         }
         lendingPool = IPool(_lendingPool);
     }
 
     function setMainContract(address _mainContractAddrs) external onlyOwner {
         if (_mainContractAddrs == address(0)) {
-            revert TargeContract__InvalidAddress();
+            revert TargetContract__InvalidAddress();
         }
         mainContract = _mainContractAddrs;
     }
@@ -82,9 +86,9 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         bytes4 _functionSelector
     ) external onlyOwner {
         if (_dexAddress == address(0)) {
-            revert TargeContract__InvalidAddress();
+            revert TargetContract__InvalidAddress();
         }
-        dexFunctions[_dexAddress] = _functionSelector;
+        dexFunctionMapping[_dexAddress] = _functionSelector;
         emit DexFunctionSet(_dexAddress, _functionSelector);
     }
 
@@ -93,7 +97,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         bytes4 _functionSelector
     ) external onlyOwner {
         if (_bridgeAddress == address(0)) {
-            revert TargeContract__InvalidAddress();
+            revert TargetContract__InvalidAddress();
         }
         bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
         emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
@@ -103,7 +107,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address _dexAddress,
         bool _status
     ) external onlyOwner {
-        authorizedDex[_dexAddress] = _status;
+        authorizedDexes[_dexAddress] = _status;
         emit DexAuthorized(_dexAddress, _status);
     }
 
@@ -111,7 +115,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address _bridgeAddress,
         bool _status
     ) external onlyOwner {
-        authorizedBridge[_bridgeAddress] = _status;
+        authorizedBridges[_bridgeAddress] = _status;
         emit BridgeAuthorized(_bridgeAddress, _status);
     }
 
@@ -121,7 +125,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         bytes memory _payload,
         address _executor,
         bytes memory _extraData
-    ) internal override {
+    ) internal {
         // Decode the payload
         (
             address[] memory tokens,
@@ -145,6 +149,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                     bytes
                 )
             );
+
         executeArbitrage(
             tokens,
             amounts,
@@ -155,6 +160,67 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             nonce,
             signature
         );
+        if (chainIds.length > 1) {
+            uint operationPerformed = 0;
+            for (uint i = 0; i < chainIds.length - 1; i++) {
+                if (chainIds[i] == chainIds[0]) {
+                    operationPerformed++;
+                } else {
+                    break;
+                }
+            }
+            uint16[] memory nextChainIds = new uint16[](
+                chainIds.length - operationPerformed
+            );
+            address[] memory nextTokens = new address[](
+                tokens.length - operationPerformed
+            );
+            uint256[] memory nextAmounts = new uint256[](
+                amounts.length - operationPerformed
+            );
+            address[] memory nextDexes = new address[](
+                dexes.length - operationPerformed
+            );
+            address[] memory nextBridges = new address[](
+                bridges.length - operationPerformed - 1
+            );
+
+            for (uint i = 0; i < nextChainIds.length; i++) {
+                nextChainIds[i] = chainIds[i + operationPerformed];
+                nextDexes[i] = dexes[i + operationPerformed];
+                nextTokens[i] = tokens[i + operationPerformed];
+                nextAmounts[i] = amounts[i + operationPerformed];
+            }
+            for (uint i = 0; i < nextBridges.length; i++) {
+                nextBridges[i] = bridges[i + (operationPerformed - 1)];
+            }
+
+            bytes memory nextPayload = abi.encode(
+                nextTokens,
+                nextAmounts,
+                nextDexes,
+                nextBridges,
+                nextChainIds,
+                recipient,
+                nonce,
+                signature
+            );
+
+            bytes memory options = abi.encode(uint16(1), uint256(200000));
+            MessagingFee memory fee = MessagingFee({
+                nativeFee: 0,
+                lzTokenFee: 0
+            });
+            _lzSend(
+                nextChainIds[0],
+                nextPayload,
+                options,
+                fee,
+                payable(msg.sender)
+            );
+        } else {
+            emit CrossChainSync(_srcChaindId, _guild, "Arbitrage completed");
+        }
     }
 
     function executeArbitrage(
@@ -184,7 +250,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         );
         address signer = ECDSA.recover(ethSignedMessageHash, _signature);
         if (signer != owner()) {
-            revert TargeContract__NotOwner();
+            revert TargetContract__NotOwner();
         }
 
         //Prepare for the flash loan
@@ -201,7 +267,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             _chainIds,
             _recipient
         );
-        lendingPool.flashloan(
+        lendingPool.flashLoan(
             address(this),
             _tokens,
             _amounts,
@@ -220,56 +286,64 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         bytes memory params
     ) external override returns (bool) {
         if (msg.sender != address(lendingPool)) {
-            revert TargeContract__CallerMustBeLendingPool();
+            revert TargetContract__CallerMustBeLendingPool();
         }
         //Decode the params
         (
-            address[] memory tokens,
-            uint256[] memory amounts,
-            address[] memory dexes,
-            address[] memory bridges,
-            uint16[] memory chainIds,
-            address recipient
+            address[] memory _tokens,
+            uint256[] memory _amounts,
+            address[] memory _dexes,
+            address[] memory _bridges,
+            uint16[] memory _chainIds,
+            address _recipient
         ) = abi.decode(
                 params,
                 (address[], uint256[], address[], address[], uint16[], address)
             );
 
         //Execute swap on designated DEXes and handle Bridging
-        for (uint256 i = 0; i < dexes.length; i++) {
-            address dexAddress = dexes[i];
+        for (uint256 i = 0; i < _dexes.length; i++) {
+            address dexAddress = _dexes[i];
             if (dexAddress == address(0)) {
-                revert TargeContract__InvalidAddress();
+                revert TargetContract__InvalidAddress();
+            }
+            if (!authorizedDexes[dexAddress]) {
+                revert TargetContract__UnauthorizedDex();
             }
             bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
             (bool success, bytes memory result) = address(this).delegatecall(
                 abi.encodeWithSelector(
                     swapFunctionSelector,
-                    tokens[i],
-                    tokens[i + 1],
-                    amounts[i],
+                    _tokens[i],
+                    _tokens[i + 1],
+                    _amounts[i],
                     dexAddress
                 )
             );
             require(success, "Swap failed");
-            emit SwapExecuted(dexAddress, tokens[i], tokens[i + 1], amounts[i]);
+            emit SwapExecuted(
+                dexAddress,
+                _tokens[i],
+                _tokens[i + 1],
+                _amounts[i]
+            );
             unchecked {
                 i++;
             }
 
-            _handleBridge(bridges, tokens, amounts, chainIds, recipient);
+            _handleBridge(_bridges, _tokens, _amounts, _chainIds, _recipient);
 
-            for (uint256 i = 0; i < assets.length; i++) {
+            for (uint256 j = 0; j < assets.length; j++) {
                 uint256 amountOwing = amounts[i] + premiums[i];
                 IERC20(assets[i]).approve(address(lendingPool), amountOwing);
-                IERC20(assets[i]).transfer(lendingPool, amountOwing);
+                IERC20(assets[i]).transfer(address(lendingPool), amountOwing);
             }
         }
         emit FlashLoanRepaid(assets, amounts, premiums);
         return true;
     }
 
-    function _handleBridging(
+    function _handleBridge(
         address[] memory _bridges,
         address[] memory _tokens,
         uint256[] memory _amounts,
@@ -279,7 +353,10 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         for (uint256 i = 0; i < _bridges.length; ) {
             address bridgeAddress = _bridges[i];
             if (bridgeAddress == address(0)) {
-                revert TargeContract__InvalidAddress();
+                revert TargetContract__InvalidAddress();
+            }
+            if (!authorizedBridges[bridgeAddress]) {
+                revert TargetContract__UnauthorizedBridge();
             }
             _executeBridge(
                 bridgeAddress,
@@ -331,7 +408,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         path[0] = tokenIn;
         path[1] = tokenOut;
 
-        IUniswapV2Router02(dexRouterAddrss).swapExactTokenFortTokens(
+        IUniswapV2Router02(dexRouterAddress).swapExactTokensForTokens(
             amountIn,
             1,
             path,
@@ -400,5 +477,17 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             address(this),
             block.timestamp + 200
         );
+    }
+
+    function ADDRESSES_PROVIDER()
+        external
+        pure
+        returns (IPoolAddressesProvider)
+    {
+        return IPoolAddressesProvider(address(0));
+    }
+
+    function POOL() external view override returns (IPool) {
+        return lendingPool;
     }
 }
