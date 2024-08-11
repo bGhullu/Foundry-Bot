@@ -182,7 +182,12 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 dexes.length - operationPerformed
             );
             address[] memory nextBridges = new address[](
-                bridges.length - operationPerformed - 1
+                bridges.length -
+                    (
+                        operationPerformed > 1
+                            ? operationPerformed - 1
+                            : operationPerformed
+                    )
             );
 
             for (uint i = 0; i < nextChainIds.length; i++) {
@@ -192,7 +197,14 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 nextAmounts[i] = amounts[i + operationPerformed];
             }
             for (uint i = 0; i < nextBridges.length; i++) {
-                nextBridges[i] = bridges[i + (operationPerformed - 1)];
+                nextBridges[i] = bridges[
+                    i +
+                        (
+                            operationPerformed > 1
+                                ? operationPerformed - 1
+                                : operationPerformed
+                        )
+                ];
             }
 
             bytes memory nextPayload = abi.encode(
