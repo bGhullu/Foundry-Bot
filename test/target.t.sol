@@ -30,26 +30,53 @@ contract TargetArbitrageContractTest is Test {
         tokenA = new Token("Token A", "TKA");
         tokenB = new Token("Token B", "TKB");
         mockUniswapV2 = new MockUniswapV2Router();
-        mockPancakeRouter = new MockPancakeRouter(); // Use the PancakeSwap mock
+        mockPancakeRouter = new MockPancakeRouter();
         mockBridge = new MockBridge();
 
-        // Deploy the TargetArbitrageContract
-        address[] memory dexAddresses;
+        // Log statements to trace execution
+        console.log("Mocks deployed.");
+
+        // Initialize the arrays
+        address[] memory dexAddresses = new address[](2);
         dexAddresses[0] = address(mockUniswapV2);
-        dexAddresses[1] = address(mockPancakeRouter); // Use PancakeSwap instead of Uniswap V3
+        dexAddresses[1] = address(mockPancakeRouter);
+        console.log("DEX addresses initialized.");
 
-        bytes4[] memory dexFunctionSelectors;
-        dexFunctionSelectors[0] = targetContract.swapOnUniswapV2.selector;
-        dexFunctionSelectors[1] = targetContract.swapOnPancakeSwap.selector; // Use PancakeSwap function
+        bytes4[] memory dexFunctionSelectors = new bytes4[](2);
+        dexFunctionSelectors[0] = bytes4(
+            keccak256("swapOnUniswapV2(address,address,uint256,address)")
+        );
+        dexFunctionSelectors[1] = bytes4(
+            keccak256("swapOnPancakeSwap(address,address,uint256,address)")
+        );
+        console.log("DEX function selectors initialized.");
 
-        address[] memory bridgeAddresses;
+        address[] memory bridgeAddresses = new address[](1);
         bridgeAddresses[0] = address(mockBridge);
+        console.log("Bridge addresses initialized.");
 
-        bytes4[] memory bridgeFunctionSelectors;
+        bytes4[] memory bridgeFunctionSelectors = new bytes4[](1);
         bridgeFunctionSelectors[0] = bytes4(
             keccak256("transferToChain(address,uint256,uint16,address)")
         );
+        console.log("Bridge function selectors initialized.");
 
+        // Check lengths before proceeding
+        require(dexAddresses.length == 2, "dexAddresses array length mismatch");
+        require(
+            dexFunctionSelectors.length == 2,
+            "dexFunctionSelectors array length mismatch"
+        );
+        require(
+            bridgeAddresses.length == 1,
+            "bridgeAddresses array length mismatch"
+        );
+        require(
+            bridgeFunctionSelectors.length == 1,
+            "bridgeFunctionSelectors array length mismatch"
+        );
+
+        // Deploy the TargetArbitrageContract with initialized arrays
         targetContract = new TargetArbitrageContract(
             address(mockEndpoint),
             address(mockPool),
@@ -58,26 +85,118 @@ contract TargetArbitrageContractTest is Test {
             bridgeAddresses,
             bridgeFunctionSelectors
         );
+        console.log("TargetArbitrageContract deployed.");
 
         // Set main contract
         targetContract.setMainContract(mainContract);
+        console.log("Main contract set.");
     }
 
     // Other test functions remain the same...
+    function testInitialization() public {
+        assertEq(targetContract.mainContract(), mainContract);
+        assertEq(targetContract.lendingPool(), address(mockPool));
+
+        bytes4 uniswapV2Selector = targetContract.dexFunctionMapping(
+            address(mockUniswapV2)
+        );
+        assertEq(uniswapV2Selector, targetContract.swapOnUniswapV2.selector);
+
+        bytes4 pancakeswapSelector = targetContract.dexFunctionMapping(
+            address(mockPancakeRouter)
+        );
+        assertEq(
+            pancakeswapSelector,
+            targetContract.swapOnPancakeSwap.selector
+        );
+    }
+
+    function testSetDexFunction() public {
+        address newDex = address(0x789);
+        bytes4 newSelector = bytes4(keccak256("newDexFunction(address)"));
+        vm.prank(owner);
+        targetContract.setDexFunction(newDex, newSelector);
+        assertEq(targetContract.dexFunctionMapping(newDex), newSelector);
+    }
+
+    function testAuthorizeDex() public {
+        address newDex = address(0x789);
+        vm.prank(owner);
+        targetContract.authorizedDex(newDex, true);
+        assertTrue(targetContract.authorizedDexes(newDex));
+
+        vm.prank(owner);
+        targetContract.authorizedDex(newDex, false);
+        assertFalse(targetContract.authorizedDexes(newDex));
+    }
+
+    function testExecuteSwapOnUniswapV2() public {
+        vm.startPrank(owner);
+        targetContract.authorizedDex(address(mockUniswapV2), true);
+        tokenA.transfer(address(targetContract), 1e18);
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(tokenA);
+        tokens[1] = address(tokenB);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1e18;
+
+        address[] memory dexes = new address[](1);
+        dexes[0] = address(mockUniswapV2);
+
+        bytes memory params = abi.encode(tokens, amounts, dexes, owner);
+        targetContract.executeOperation(
+            tokens,
+            amounts,
+            amounts,
+            owner,
+            params
+        );
+
+        assertEq(tokenB.balanceOf(address(targetContract)), 1e18);
+        vm.stopPrank();
+    }
+
+    function testFlashLoan() public {
+        // Set up a basic flash loan scenario
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(tokenA);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1e18;
+
+        address[] memory dexes = new address[](1);
+        dexes[0] = address(mockUniswapV2);
+
+        vm.startPrank(owner);
+        targetContract.authorizedDex(address(mockUniswapV2), true);
+        tokenA.transfer(address(targetContract), 1e18);
+
+        targetContract._initiateFlashLoan(tokens, amounts, dexes, owner);
+        vm.stopPrank();
+    }
+
+    function testUnauthorizedCaller() public {
+        vm.prank(address(0x999));
+        vm.expectRevert("Not authorized");
+        targetContract.setMainContract(address(0x888));
+    }
 
     function testExecuteSwapOnPancakeSwap() public {
+        owner = address(this);
         vm.startPrank(owner);
         targetContract.authorizedDex(address(mockPancakeRouter), true);
         tokenA.transfer(address(targetContract), 1e18);
 
-        address[] memory tokens;
+        address[] memory tokens = new address[](2);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
 
-        uint256[] memory amounts;
+        uint256[] memory amounts = new uint256[](2);
         amounts[0] = 1e18;
 
-        address[] memory dexes;
+        address[] memory dexes = new address[](1);
         dexes[0] = address(mockPancakeRouter);
 
         bytes memory params = abi.encode(tokens, amounts, dexes, owner);
