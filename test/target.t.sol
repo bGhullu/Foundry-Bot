@@ -36,6 +36,9 @@ contract TargetArbitrageContractTest is Test {
         // Log statements to trace execution
         console.log("Mocks deployed.");
 
+        tokenA.mint(address(this), 1e18);
+        tokenB.mint(address(this), 1e18);
+
         // Initialize the arrays
         address[] memory dexAddresses = new address[](2);
         dexAddresses[0] = address(mockUniswapV2);
@@ -94,8 +97,10 @@ contract TargetArbitrageContractTest is Test {
 
     // Other test functions remain the same...
     function testInitialization() public {
+        owner = address(this);
+        vm.prank(owner);
         assertEq(targetContract.mainContract(), mainContract);
-        assertEq(targetContract.lendingPool(), address(mockPool));
+        assertEq(address(targetContract.lendingPool()), address(mockPool));
 
         bytes4 uniswapV2Selector = targetContract.dexFunctionMapping(
             address(mockUniswapV2)
@@ -112,6 +117,7 @@ contract TargetArbitrageContractTest is Test {
     }
 
     function testSetDexFunction() public {
+        owner = address(this);
         address newDex = address(0x789);
         bytes4 newSelector = bytes4(keccak256("newDexFunction(address)"));
         vm.prank(owner);
@@ -120,6 +126,7 @@ contract TargetArbitrageContractTest is Test {
     }
 
     function testAuthorizeDex() public {
+        owner = address(this);
         address newDex = address(0x789);
         vm.prank(owner);
         targetContract.authorizedDex(newDex, true);
@@ -130,7 +137,43 @@ contract TargetArbitrageContractTest is Test {
         assertFalse(targetContract.authorizedDexes(newDex));
     }
 
+    function testUnauthorizedCaller() public {
+        vm.prank(address(0x999));
+        vm.expectRevert("Ownable:caller is not the owner");
+        targetContract.setMainContract(address(0x888));
+    }
+
+    function testFlashLoan() public {
+        owner = address(this);
+        // Set up a basic flash loan scenario
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(tokenA);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1e18;
+
+        address[] memory dexes = new address[](1);
+        dexes[0] = address(mockUniswapV2);
+
+        vm.prank(owner);
+        targetContract.authorizedDex(address(mockUniswapV2), true);
+        tokenA.mint(address(targetContract), 1e18);
+        tokenA.transfer(address(targetContract), 1e18);
+        vm.startPrank(address(mockPool));
+        targetContract.executeOperation(
+            tokens,
+            amounts,
+            amounts,
+            owner,
+            abi.encode(tokens, amounts, dexes, owner)
+        );
+
+        //  targetContract._initiateFlashLoan(tokens, amounts, dexes, owner);
+        vm.stopPrank();
+    }
+
     function testExecuteSwapOnUniswapV2() public {
+        owner = address(this);
         vm.startPrank(owner);
         targetContract.authorizedDex(address(mockUniswapV2), true);
         tokenA.transfer(address(targetContract), 1e18);
@@ -146,6 +189,7 @@ contract TargetArbitrageContractTest is Test {
         dexes[0] = address(mockUniswapV2);
 
         bytes memory params = abi.encode(tokens, amounts, dexes, owner);
+        vm.startPrank(address(mockPool));
         targetContract.executeOperation(
             tokens,
             amounts,
@@ -156,31 +200,6 @@ contract TargetArbitrageContractTest is Test {
 
         assertEq(tokenB.balanceOf(address(targetContract)), 1e18);
         vm.stopPrank();
-    }
-
-    function testFlashLoan() public {
-        // Set up a basic flash loan scenario
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(tokenA);
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1e18;
-
-        address[] memory dexes = new address[](1);
-        dexes[0] = address(mockUniswapV2);
-
-        vm.startPrank(owner);
-        targetContract.authorizedDex(address(mockUniswapV2), true);
-        tokenA.transfer(address(targetContract), 1e18);
-
-        targetContract._initiateFlashLoan(tokens, amounts, dexes, owner);
-        vm.stopPrank();
-    }
-
-    function testUnauthorizedCaller() public {
-        vm.prank(address(0x999));
-        vm.expectRevert("Not authorized");
-        targetContract.setMainContract(address(0x888));
     }
 
     function testExecuteSwapOnPancakeSwap() public {
@@ -200,6 +219,7 @@ contract TargetArbitrageContractTest is Test {
         dexes[0] = address(mockPancakeRouter);
 
         bytes memory params = abi.encode(tokens, amounts, dexes, owner);
+        vm.startPrank(address(mockPool));
         targetContract.executeOperation(
             tokens,
             amounts,

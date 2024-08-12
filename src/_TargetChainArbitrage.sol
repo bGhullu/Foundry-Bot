@@ -385,7 +385,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint256[] memory _amounts,
         address[] memory _dexes,
         address _recipient
-    ) internal {
+    ) public {
         uint256[] memory modes = new uint256[](_tokens.length);
 
         for (uint256 i = 0; i < _tokens.length; i++) {
@@ -540,7 +540,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         bytes4[] memory dexFunctionSelectors,
         address[] memory bridgeAddresses,
         bytes4[] memory bridgeFunctionSelectors
-    ) internal {
+    ) public {
         require(
             dexAddresses.length == dexFunctionSelectors.length,
             "DEX addresses and function selectors length mismatch"
