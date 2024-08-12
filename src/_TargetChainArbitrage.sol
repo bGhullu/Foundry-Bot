@@ -570,7 +570,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address tokenOut,
         uint256 amountIn,
         address dexRouterAddress
-    ) internal {
+    ) public {
         IERC20(tokenIn).approve(dexRouterAddress, amountIn);
         address[] memory path = new address[](2);
         path[0] = tokenIn;
@@ -591,7 +591,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint24 fee,
         uint256 amountIn,
         address dexRouterAddress
-    ) internal {
+    ) public {
         IERC20(tokenIn).approve(dexRouterAddress, amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
             .ExactInputSingleParams({
@@ -632,7 +632,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address tokenOut,
         uint256 amountIn,
         address dexRouterAddress
-    ) internal {
+    ) public {
         IERC20(tokenIn).approve(dexRouterAddress, amountIn);
         address[] memory path = new address[](2);
         path[0] = tokenIn;
