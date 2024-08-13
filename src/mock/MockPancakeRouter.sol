@@ -96,7 +96,34 @@ contract MockPancakeRouter is IUniswapV2Router02 {
         address[] calldata path,
         address to,
         uint deadline
-    ) external override returns (uint[] memory amounts) {}
+    ) external override returns (uint[] memory amounts) {
+        require(amountIn > 0, "Amount in must be greater than 0");
+        require(path.length >= 2, "Path length must be at least 2");
+
+        IERC20 inputToken = IERC20(path[0]);
+        IERC20 outputToken = IERC20(path[path.length - 1]);
+
+        // Simulate token transfer to the router
+        inputToken.transferFrom(msg.sender, address(this), amountIn);
+
+        // Ensure the router has a sufficient balance of the output token
+        require(
+            outputToken.balanceOf(address(this)) >= amountOutMin,
+            "Insufficient output token balance"
+        );
+
+        // Simulate the output amount (e.g., 1:1 ratio for simplicity)
+        uint amountOut = amountIn; // This can be more complex depending on your needs
+        require(amountOut >= amountOutMin, "Insufficient output amount");
+
+        // Transfer the output tokens to the recipient
+        outputToken.transfer(to, amountOut);
+
+        // Return the amounts array
+        amounts = new uint[](path.length);
+        amounts[0] = amountIn;
+        amounts[path.length - 1] = amountOut;
+    }
 
     function swapTokensForExactTokens(
         uint amountOut,

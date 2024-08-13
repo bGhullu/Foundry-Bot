@@ -18,7 +18,7 @@ interface ISushiSwapRouter is IUniswapV2Router02 {}
 contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     using ECDSA for bytes32;
 
-    error TargetContract__NotMainContractOrOwner();
+    error TargetContract__UnauthorizedCaller();
     error TargetContract__InvalidAddress();
     error TargetContract__NotOwner();
     error TargetContract__CallerMustBeLendingPool();
@@ -56,10 +56,9 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     mapping(address => bool) public authorizedBridges;
 
     modifier onlyMainOrOwner() {
-        require(
-            msg.sender == mainContract || msg.sender == owner(),
-            "Not authorized"
-        );
+        if (msg.sender != mainContract || msg.sender != owner()) {
+            revert TargetContract__UnauthorizedCaller();
+        }
         _;
     }
 
@@ -85,10 +84,9 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     }
 
     function setMainContract(address _mainContractAddr) external onlyOwner {
-        require(
-            _mainContractAddr != address(0),
-            "Invalid main contract address"
-        );
+        if (_mainContractAddr == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
         mainContract = _mainContractAddr;
     }
 
@@ -96,7 +94,9 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address _dexAddress,
         bytes4 _functionSelector
     ) external onlyOwner {
-        require(_dexAddress != address(0), "Invalid DEX address");
+        if (_dexAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
         dexFunctionMapping[_dexAddress] = _functionSelector;
         emit DexFunctionSet(_dexAddress, _functionSelector);
     }
@@ -105,7 +105,9 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address _bridgeAddress,
         bytes4 _functionSelector
     ) external onlyOwner {
-        require(_bridgeAddress != address(0), "Invalid bridge address");
+        if (_bridgeAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
         bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
         emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
     }
@@ -377,7 +379,8 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 index++;
             }
         }
-        filteredTokens[count] = tokens[count]; // Set the final output token
+        // filteredTokens[count] = tokens[count]; // Set the final output token
+        filteredTokens[count] = tokens[tokens.length - 1];
     }
 
     function _initiateFlashLoan(
@@ -442,8 +445,23 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 _chainIds
             );
 
+        require(
+            filteredDexes.length == filteredTokens.length - 1,
+            "Mismatch between dexes and tokens"
+        );
+        require(
+            filteredDexes.length > 0,
+            "No dexes found for the current chain"
+        );
+        require(filteredTokens.length > 1, "Not enough tokens for swapping");
+        require(filteredAmounts.length > 0, "Not enough amounts for swapping");
+
         // Execute swaps on designated DEXes for the current chain
         for (uint256 i = 0; i < filteredDexes.length; i++) {
+            require(
+                i + 1 < filteredTokens.length,
+                "Token array length mismatch"
+            );
             address dexAddress = filteredDexes[i];
             require(dexAddress != address(0), "Invalid DEX address");
             require(authorizedDexes[dexAddress], "DEX not authorized");
@@ -457,8 +475,16 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         }
 
         // Handle the bridge operation after swaps are complete
-        if (_bridges.length > 0 && filteredDexes.length > 0) {
+        if (
+            _bridges.length > 0 &&
+            filteredDexes.length > 0 &&
+            _chainIds.length > 1
+        ) {
             uint bridgeIndex = filteredDexes.length - 1;
+            require(
+                bridgeIndex + 1 < _chainIds.length,
+                "Chain ID array out of bounds"
+            );
 
             _executeBridge(
                 _bridges[bridgeIndex], // The bridge to use for the current operation

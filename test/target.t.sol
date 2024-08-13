@@ -39,6 +39,13 @@ contract TargetArbitrageContractTest is Test {
         tokenA.mint(address(this), 1e18);
         tokenB.mint(address(this), 1e18);
 
+        // Mint or transfer Token B to the mock Uniswap V2 router
+        tokenB.mint(address(mockUniswapV2), 1e18);
+        tokenB.mint(address(mockPancakeRouter), 1e18);
+
+        // Alternatively, you can transfer Token B if it already exists:
+        // tokenB.transfer(address(mockUniswapV2), 1e18);
+
         // Initialize the arrays
         address[] memory dexAddresses = new address[](2);
         dexAddresses[0] = address(mockUniswapV2);
@@ -139,7 +146,13 @@ contract TargetArbitrageContractTest is Test {
 
     function testUnauthorizedCaller() public {
         vm.prank(address(0x999));
-        vm.expectRevert("Ownable:caller is not the owner");
+
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "OwnableUnauthorizedAccount(address)",
+                address(0x999)
+            )
+        );
         targetContract.setMainContract(address(0x888));
     }
 
@@ -159,13 +172,26 @@ contract TargetArbitrageContractTest is Test {
         targetContract.authorizedDex(address(mockUniswapV2), true);
         tokenA.mint(address(targetContract), 1e18);
         tokenA.transfer(address(targetContract), 1e18);
+
+        uint16[] memory chainIds = new uint16[](1);
+        chainIds[0] = uint16(block.chainid);
+
+        address[] memory bridges = new address[](1);
+        bytes memory params = abi.encode(
+            tokens,
+            amounts,
+            dexes,
+            bridges,
+            chainIds,
+            owner
+        );
         vm.startPrank(address(mockPool));
         targetContract.executeOperation(
             tokens,
             amounts,
             amounts,
             owner,
-            abi.encode(tokens, amounts, dexes, owner)
+            params
         );
 
         //  targetContract._initiateFlashLoan(tokens, amounts, dexes, owner);
@@ -176,6 +202,8 @@ contract TargetArbitrageContractTest is Test {
         owner = address(this);
         vm.startPrank(owner);
         targetContract.authorizedDex(address(mockUniswapV2), true);
+        tokenA.mint(address(this), 1e18);
+        tokenA.approve(address(targetContract), 1e18);
         tokenA.transfer(address(targetContract), 1e18);
 
         address[] memory tokens = new address[](2);
@@ -183,12 +211,23 @@ contract TargetArbitrageContractTest is Test {
         tokens[1] = address(tokenB);
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 1e18;
+        amounts[0] = 1e5;
 
         address[] memory dexes = new address[](1);
         dexes[0] = address(mockUniswapV2);
 
-        bytes memory params = abi.encode(tokens, amounts, dexes, owner);
+        uint16[] memory chainIds = new uint16[](1);
+        chainIds[0] = uint16(block.chainid);
+
+        address[] memory bridges = new address[](1);
+        bytes memory params = abi.encode(
+            tokens,
+            amounts,
+            dexes,
+            bridges,
+            chainIds,
+            owner
+        );
         vm.startPrank(address(mockPool));
         targetContract.executeOperation(
             tokens,
@@ -198,7 +237,7 @@ contract TargetArbitrageContractTest is Test {
             params
         );
 
-        assertEq(tokenB.balanceOf(address(targetContract)), 1e18);
+        assertEq(tokenB.balanceOf(address(targetContract)), 1e5);
         vm.stopPrank();
     }
 
@@ -218,7 +257,18 @@ contract TargetArbitrageContractTest is Test {
         address[] memory dexes = new address[](1);
         dexes[0] = address(mockPancakeRouter);
 
-        bytes memory params = abi.encode(tokens, amounts, dexes, owner);
+        uint16[] memory chainIds = new uint16[](1);
+        chainIds[0] = uint16(block.chainid);
+
+        address[] memory bridges = new address[](1);
+        bytes memory params = abi.encode(
+            tokens,
+            amounts,
+            dexes,
+            bridges,
+            chainIds,
+            owner
+        );
         vm.startPrank(address(mockPool));
         targetContract.executeOperation(
             tokens,

@@ -5,11 +5,69 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
 
 contract MockUniswapV2Router is IUniswapV2Router02 {
-    // Many functions from the interface can be added here with similar logic
-    // For simplicity, only a few key functions are implemented in this mock
-    function factory() external pure override returns (address) {}
+    mapping(address => mapping(address => uint256)) public balances;
 
-    function WETH() external pure override returns (address) {}
+    function WETH() external pure override returns (address) {
+        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // You can replace this with any mock address
+    }
+
+    constructor() {}
+
+    // Mock swapExactTokensForTokens function
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external override returns (uint[] memory amounts) {
+        require(amountIn > 0, "Amount in must be greater than 0");
+        require(path.length >= 2, "Path length must be at least 2");
+
+        IERC20 inputToken = IERC20(path[0]);
+        IERC20 outputToken = IERC20(path[path.length - 1]);
+
+        // Simulate token transfer to the router
+        inputToken.transferFrom(msg.sender, address(this), amountIn);
+
+        // Ensure the router has a sufficient balance of the output token
+        require(
+            outputToken.balanceOf(address(this)) >= amountOutMin,
+            "Insufficient output token balance"
+        );
+
+        // Simulate the output amount (e.g., 1:1 ratio for simplicity)
+        uint amountOut = amountIn; // This can be more complex depending on your needs
+        require(amountOut >= amountOutMin, "Insufficient output amount");
+
+        // Transfer the output tokens to the recipient
+        outputToken.transfer(to, amountOut);
+
+        // Return the amounts array
+        amounts = new uint[](path.length);
+        amounts[0] = amountIn;
+        amounts[path.length - 1] = amountOut;
+    }
+
+    // Mock getAmountsOut function
+    function getAmountsOut(
+        uint amountIn,
+        address[] calldata path
+    ) external pure override returns (uint[] memory amounts) {
+        require(path.length >= 2, "Path length must be at least 2");
+
+        // For simplicity, let's assume a 1:1 swap rate in this mock
+        amounts = new uint[](path.length);
+        amounts[0] = amountIn;
+
+        // All amounts out are equal to amountIn for simplicity
+        for (uint i = 1; i < path.length; i++) {
+            amounts[i] = amountIn;
+        }
+    }
+
+    // Implement required but unused functions as empty
+    function factory() external pure override returns (address) {}
 
     function addLiquidity(
         address tokenA,
@@ -54,41 +112,6 @@ contract MockUniswapV2Router is IUniswapV2Router02 {
         address to,
         uint deadline
     ) external override returns (uint amountToken, uint amountETH) {}
-
-    function removeLiquidityWithPermit(
-        address tokenA,
-        address tokenB,
-        uint liquidity,
-        uint amountAMin,
-        uint amountBMin,
-        address to,
-        uint deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external override returns (uint amountA, uint amountB) {}
-
-    function removeLiquidityETHWithPermit(
-        address token,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external override returns (uint amountToken, uint amountETH) {}
-
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external override returns (uint[] memory amounts) {}
 
     function swapTokensForExactTokens(
         uint amountOut,
@@ -146,11 +169,6 @@ contract MockUniswapV2Router is IUniswapV2Router02 {
         uint reserveOut
     ) external pure override returns (uint amountIn) {}
 
-    function getAmountsOut(
-        uint amountIn,
-        address[] calldata path
-    ) external view override returns (uint[] memory amounts) {}
-
     function getAmountsIn(
         uint amountOut,
         address[] calldata path
@@ -200,4 +218,33 @@ contract MockUniswapV2Router is IUniswapV2Router02 {
         address to,
         uint deadline
     ) external override {}
+
+    // function WETH() external pure override returns (address) {}
+
+    function removeLiquidityWithPermit(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline,
+        bool approveMax,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override returns (uint amountA, uint amountB) {}
+
+    function removeLiquidityETHWithPermit(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline,
+        bool approveMax,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override returns (uint amountToken, uint amountETH) {}
 }
