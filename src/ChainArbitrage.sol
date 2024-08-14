@@ -57,7 +57,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     mapping(address => bool) public authorizedBridges;
 
     modifier onlyMainOrOwner() {
-        if (msg.sender != mainContract || msg.sender != owner()) {
+        if (msg.sender != mainContract && msg.sender != owner()) {
             revert TargetContract__UnauthorizedCaller();
         }
         _;
@@ -159,16 +159,8 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 )
             );
 
-        executeArbitrage(
-            tokens,
-            amounts,
-            dexes,
-            bridges,
-            chainIds,
-            recipient,
-            nonce,
-            signature
-        );
+        // Initiate flash loan to start the arbitrage process
+        _initiateFlashLoan(tokens, amounts, dexes, recipient);
 
         if (chainIds.length > 1) {
             bytes memory nextPayload = _createNextPayload(
@@ -316,150 +308,61 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             )
         );
 
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
-            messageHash
-        );
-        address signer = ECDSA.recover(ethSignedMessageHash, _signature);
-        require(signer == owner(), "Invalid Signature");
-
-        // Filter dexes, tokens, and amounts for the current chain
-        // (
-        //     address[] memory currentDexes,
-        //     address[] memory currentTokens,
-        //     uint256[] memory currentAmounts
-        // ) = filterDexesByChainId(
-        //         uint16(block.chainid),
-        //         _dexes,
-        //         _tokens,
-        //         _amounts,
-        //         _chainIds
-        //     );
-
-        // _initiateFlashLoan(
-        //     currentTokens,
-        //     currentAmounts,
-        //     currentDexes,
-        //     _recipient
+        // bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
+        //     messageHash
         // );
-        _initiateFlashLoan(_tokens, _amounts, _dexes, _bridges, _recipient);
+        // address signer = ECDSA.recover(ethSignedMessageHash, _signature);
+        // require(signer == owner(), "Invalid Signature");
+
+        uint lastSwapIndex = 0;
+        uint bridgeIndex = 0;
+
+        for (uint i = 0; i < _chainIds.length - 1; i++) {
+            // Perform the swap on the current DEX for the current chain
+            _swapOnDex(
+                _dexes[lastSwapIndex],
+                _tokens[lastSwapIndex],
+                _tokens[lastSwapIndex + 1],
+                _amounts[lastSwapIndex]
+            );
+
+            // Check if the next chain ID is different, indicating a bridge is needed
+            if (_chainIds[i] != _chainIds[i + 1]) {
+                require(
+                    bridgeIndex < _bridges.length,
+                    "Bridge array out of bounds"
+                );
+
+                // Execute the bridge to the next chain
+                _executeBridge(
+                    _bridges[bridgeIndex],
+                    _tokens[lastSwapIndex + 1],
+                    _amounts[lastSwapIndex],
+                    _chainIds[i + 1],
+                    _recipient
+                );
+
+                bridgeIndex++;
+            }
+
+            lastSwapIndex++;
+        }
+
+        // Perform the final swap if needed, after all possible bridges
+        if (lastSwapIndex < _dexes.length) {
+            _swapOnDex(
+                _dexes[lastSwapIndex],
+                _tokens[lastSwapIndex],
+                _tokens[lastSwapIndex + 1],
+                _amounts[lastSwapIndex]
+            );
+        }
     }
-
-    // function filterDexesByChainId(
-    //     uint16 currentChainId,
-    //     address[] memory dexes,
-    //     address[] memory tokens,
-    //     uint256[] memory amounts,
-    //     uint16[] memory chainIds
-    // )
-    //     internal
-    //     pure
-    //     returns (
-    //         address[] memory filteredDexes,
-    //         address[] memory filteredTokens,
-    //         uint256[] memory filteredAmounts
-    //     )
-    // {
-    //     uint count = 0;
-
-    //     // Count how many dexes are for the current chainId
-    //     for (uint i = 0; i < chainIds.length; i++) {
-    //         if (chainIds[i] == currentChainId) {
-    //             count++;
-    //         } else {
-    //             break;
-    //         }
-    //     }
-    //     console.log("Count:", count);
-
-    //     // Initialize the filtered arrays
-    //     filteredDexes = new address[](count);
-    //     filteredTokens = new address[](count + 1); // +1 to include the final output token
-    //     filteredAmounts = new uint256[](count);
-
-    //     // Populate the filtered arrays
-
-    //     for (uint i = 0; i < count; i++) {
-    //         if (chainIds[i] == currentChainId) {
-    //             console.log("Index:", i);
-
-    //             filteredDexes[i] = dexes[i];
-    //             filteredTokens[i] = tokens[i];
-    //             filteredAmounts[i] = amounts[i];
-    //             // Ensure we don't access out-of-bounds
-    //             console.log("Filtered DEX", i, "is", filteredDexes[i]);
-    //             console.log("Filtered Token In", i, "is", filteredTokens[i]);
-    //             if (i < count - 1) {
-    //                 filteredTokens[i + 1] = tokens[i + 1];
-    //             }
-    //         }
-    //     }
-    //     console.log("Final Filtered Tokens Length:", filteredTokens.length);
-
-    //     // Ensure the last token is correctly assigned if it's a multi-chain operation
-    //     if (count < tokens.length) {
-    //         filteredTokens[count] = tokens[count];
-    //     } else {
-    //         filteredTokens[count] = tokens[tokens.length - 1];
-    //     }
-
-    //     require(
-    //         filteredDexes.length == filteredTokens.length - 1,
-    //         "Mismatch between dexes and tokens"
-    //     );
-
-    //     console.log("Final Filtered Dexes Length:", filteredDexes.length);
-    //     console.log("Final Filtered Tokens Length:", filteredTokens.length);
-    //     console.log("Final Filtered Amounts Length:", filteredAmounts.length);
-    //     // Set the final output token
-    //     // filteredTokens[count] = tokens[tokens.length - 1];
-    // }
-
-    //     // Count how many dexes are for the current chainId
-    //     for (uint i = 0; i < chainIds.length; i++) {
-    //         if (chainIds[i] == currentChainId) {
-    //             count++;
-    //         }
-    //     }
-
-    //     // Initialize the filtered arrays
-    //     filteredDexes = new address[](count);
-    //     filteredTokens = new address[](count + 1); // +1 to include the final output token
-    //     filteredAmounts = new uint256[](count);
-
-    //     // Populate the filtered arrays
-    //     uint index = 0;
-    //     for (uint i = 0; i < chainIds.length; i++) {
-    //         if (chainIds[i] == currentChainId) {
-    //             filteredDexes[index] = dexes[i];
-    //             filteredTokens[index] = tokens[i];
-    //             // Handle tokens assignment:
-    //             if (index == 0) {
-    //                 // For the first dex, assign the start token and the first output token
-
-    //                 if (i + 1 < tokens.length) {
-    //                     filteredTokens[index + 1] = tokens[i + 1];
-    //                 }
-    //             } else {
-    //                 // For subsequent dexes, assign the corresponding tokens
-    //                 if (i + 1 < tokens.length) {
-    //                     filteredTokens[index + 1] = tokens[i + 1];
-    //                 }
-    //             }
-
-    //             filteredAmounts[index] = amounts[i];
-    //             index++;
-    //         }
-    //     }
-
-    //     // Ensure the last token is correctly assigned if it's a multi-chain operation
-    //     filteredTokens[count] = tokens[tokens.length - 1];
-    // }
 
     function _initiateFlashLoan(
         address[] memory _tokens,
         uint256[] memory _amounts,
         address[] memory _dexes,
-        address[] memory _bridges,
         address _recipient
     ) public {
         uint256[] memory modes = new uint256[](_tokens.length);
@@ -468,13 +371,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             modes[i] = 0; // 0 means no debt
         }
 
-        bytes memory params = abi.encode(
-            _tokens,
-            _amounts,
-            _dexes,
-            _bridges,
-            _recipient
-        );
+        bytes memory params = abi.encode(_tokens, _amounts, _dexes, _recipient);
 
         lendingPool.flashLoan(
             address(this),
@@ -505,172 +402,71 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             address[] memory _dexes,
             address[] memory _bridges,
             uint16[] memory _chainIds,
-            address _recipient
+            address _recipient,
+            uint256 _nonce,
+            bytes memory _signature
         ) = abi.decode(
                 params,
-                (address[], uint256[], address[], address[], uint16[], address)
+                (
+                    address[],
+                    uint256[],
+                    address[],
+                    address[],
+                    uint16[],
+                    address,
+                    uint256,
+                    bytes
+                )
             );
 
-        // Debugging statements to identify issues
-        console.log("Assets array:");
-        for (uint i = 0; i < assets.length; i++) {
-            console.log(assets[i]);
-        }
-        console.log("Amounts array:");
-        for (uint i = 0; i < amounts.length; i++) {
-            console.log(amounts[i]);
-        }
-        console.log("Premiums array:");
-        for (uint i = 0; i < premiums.length; i++) {
-            console.log(premiums[i]);
-        }
-
-        // Ensure that assets, amounts, and premiums lengths match
-        require(
-            assets.length == amounts.length,
-            "Mismatched assets and amounts"
-        );
-        require(
-            assets.length == premiums.length,
-            "Mismatched assets and premiums"
-        );
-
-        // Debugging statements for decoded params
+        console.log("Decoded parameters:");
         console.log("_tokens length:", _tokens.length);
         console.log("_amounts length:", _amounts.length);
         console.log("_dexes length:", _dexes.length);
+        console.log("_chainIds length:", _chainIds.length);
         console.log("_bridges length:", _bridges.length);
 
-        uint lastSwapIndex = 0;
-        uint bridgeIndex = 0;
+        // Debug the signature verification process
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                _tokens,
+                _amounts,
+                _dexes,
+                _chainIds,
+                _recipient,
+                _nonce
+            )
+        );
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
+            messageHash
+        );
+        address signer = ECDSA.recover(ethSignedMessageHash, _signature);
+        console.log("Signer:", signer);
+        console.log("Expected owner:", owner());
+        require(signer == owner(), "Invalid Signature");
 
         if (_chainIds.length == 1 && _dexes.length == 1) {
+            // Single DEX, single chain: directly swap and repay
             _swapOnDex(_dexes[0], _tokens[0], _tokens[1], _amounts[0]);
-            _repayFlashLoan(assets, amounts, premiums);
-            return true;
         } else {
-            for (uint i = 0; i < _chainIds.length - 1; i++) {
-                require(
-                    lastSwapIndex < _dexes.length,
-                    "DEX index out of bounds"
-                );
-                require(
-                    lastSwapIndex < _tokens.length - 1,
-                    "Token index out of bounds"
-                );
-
-                _swapOnDex(
-                    _dexes[lastSwapIndex],
-                    _tokens[lastSwapIndex],
-                    _tokens[lastSwapIndex + 1],
-                    _amounts[lastSwapIndex]
-                );
-
-                if (_chainIds[i] != _chainIds[i + 1]) {
-                    IERC20(_tokens[lastSwapIndex + 1]).approve(
-                        _bridges[bridgeIndex],
-                        _amounts[lastSwapIndex]
-                    );
-                    _executeBridge(
-                        _bridges[bridgeIndex],
-                        _tokens[lastSwapIndex + 1],
-                        _amounts[lastSwapIndex],
-                        _chainIds[i + 1],
-                        _recipient
-                    );
-                    bridgeIndex++;
-                }
-
-                lastSwapIndex++;
-            }
-
-            if (
-                lastSwapIndex < _dexes.length &&
-                lastSwapIndex < _tokens.length - 1
-            ) {
-                _swapOnDex(
-                    _dexes[lastSwapIndex],
-                    _tokens[lastSwapIndex],
-                    _tokens[lastSwapIndex + 1],
-                    _amounts[lastSwapIndex]
-                );
-            }
+            // Execute arbitrage logic for multiple DEXes and chains
+            executeArbitrage(
+                _tokens,
+                _amounts,
+                _dexes,
+                _bridges,
+                _chainIds,
+                _recipient,
+                _nonce,
+                _signature
+            );
         }
+        // Execute arbitrage logic
 
+        // Repay the flash loan
         _repayFlashLoan(assets, amounts, premiums);
 
         return true;
-
-        // // Filter dexes, tokens, and amounts for the current chain
-        // (
-        //     address[] memory filteredDexes,
-        //     address[] memory filteredTokens,
-        //     uint256[] memory filteredAmounts
-        // ) = filterDexesByChainId(
-        //         uint16(block.chainid),
-        //         _dexes,
-        //         _tokens,
-        //         _amounts,
-        //         _chainIds
-        //     );
-        // console.log("Filtered Dexes Length:", filteredDexes.length);
-        // console.log("Filtered Tokens Length:", filteredTokens.length);
-        // console.log("Filtered Amounts Length:", filteredAmounts.length);
-
-        // require(
-        //     filteredDexes.length == filteredTokens.length - 1,
-        //     "Mismatch between dexes and tokens"
-        // );
-        // require(
-        //     filteredDexes.length > 0,
-        //     "No dexes found for the current chain"
-        // );
-        // require(filteredTokens.length > 1, "Not enough tokens for swapping");
-        // require(filteredAmounts.length > 0, "Not enough amounts for swapping");
-
-        // // Execute swaps on designated DEXes for the current chain
-        // for (uint256 i = 0; i < filteredDexes.length; i++) {
-        //     require(
-        //         i + 1 < filteredTokens.length,
-        //         "Token array length mismatch"
-        //     );
-        //     address dexAddress = filteredDexes[i];
-        //     require(dexAddress != address(0), "Invalid DEX address");
-        //     require(authorizedDexes[dexAddress], "DEX not authorized");
-
-        //     _swapOnDex(
-        //         dexAddress,
-        //         filteredTokens[i],
-        //         filteredTokens[i + 1],
-        //         filteredAmounts[i]
-        //     );
-        // }
-
-        // // Handle the bridge operation after swaps are complete
-        // if (
-        //     _bridges.length > 0 &&
-        //     filteredDexes.length > 0 &&
-        //     _chainIds.length > 1
-        // ) {
-        //     uint bridgeIndex = filteredDexes.length - 1;
-        //     require(
-        //         bridgeIndex + 1 < _chainIds.length,
-        //         "Chain ID array out of bounds"
-        //     );
-
-        //     _executeBridge(
-        //         _bridges[bridgeIndex], // The bridge to use for the current operation
-        //         filteredTokens[filteredTokens.length - 1], // Last token after swaps
-        //         filteredAmounts[filteredAmounts.length - 1], // Last amount after swaps
-        //         _chainIds[bridgeIndex + 1], // The next chain ID
-        //         _recipient // The recipient address (contract on the next chain)
-        //     );
-        // }
-
-        // Repay the flash loan
-        // _repayFlashLoan(assets, amounts, premiums);
-
-        // return true;
     }
 
     function _swapOnDex(
@@ -702,7 +498,7 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint256 amount,
         uint16 chainId,
         address recipient
-    ) public {
+    ) internal {
         require(authorizedBridges[bridgeAddress], "Bridge not authorized");
 
         bytes4 bridgeFunctionSelector = bridgeFunctionMapping[bridgeAddress];
@@ -725,26 +521,12 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint256[] memory amounts,
         uint256[] memory premiums
     ) internal {
-        console.log("Assets length:", assets.length);
-        console.log("Amounts length:", amounts.length);
-        require(
-            assets.length == amounts.length,
-            "Mismatched assets and amounts"
-        );
-        require(
-            assets.length == premiums.length,
-            "Mismatched assets and premiums"
-        );
-
-        for (uint i = 0; i < assets.length; i++) {
-            // Repay each flash loan
-            uint amountOwed = amounts[i] + premiums[i];
-            console.log("Repaying asset:", assets[i]);
-            console.log("Total amount to repay:", amountOwed);
-            IERC20(assets[i]).approve(address(lendingPool), amountOwed);
-            // Assuming the function to repay looks something like this:
-            // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
+        for (uint256 i = 0; i < assets.length; i++) {
+            uint256 amountOwing = amounts[i] + premiums[i];
+            IERC20(assets[i]).approve(address(lendingPool), amountOwing);
         }
+
+        emit FlashLoanRepaid(assets, amounts, premiums);
     }
 
     function _initializeDexAndBridgeMappings(
@@ -869,118 +651,5 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
 
     function POOL() external view override returns (IPool) {
         return lendingPool;
-    }
-
-    function testLzSend(uint16 _dstChainId, bytes calldata _payload) external {
-        bytes32 peer = peers[_dstChainId];
-        console.log("Attempting to send to chainId:", _dstChainId);
-        console.log(" with peer address:");
-        console.logBytes32(peer);
-        require(peer != bytes32(0), "NoPeer");
-        // Simulate the logic that would be inside lzSend
-        _lzSend(
-            _dstChainId,
-            _payload,
-            abi.encode(uint16(1), uint256(200000)), // Simulating adapterParams
-            MessagingFee({nativeFee: 0, lzTokenFee: 0}), // Simulating MessagingFee
-            payable(msg.sender)
-        );
-    }
-
-    function testLzReceive(
-        Origin calldata _origin,
-        bytes32 _guid,
-        bytes calldata _payload,
-        address _executor,
-        bytes calldata _extraData
-    ) external {
-        (
-            address[] memory tokens,
-            uint256[] memory amounts,
-            address[] memory dexes,
-            address[] memory bridges,
-            uint16[] memory chainIds,
-            address recipient,
-            uint256 nonce,
-            bytes memory signature
-        ) = abi.decode(
-                _payload,
-                (
-                    address[],
-                    uint256[],
-                    address[],
-                    address[],
-                    uint16[],
-                    address,
-                    uint256,
-                    bytes
-                )
-            );
-
-        // Example: Log or assert the decoded values (for testing purposes)
-        console.log("Received payload for cross-chain operation");
-
-        // Process the first swap on the current chain
-        if (dexes.length > 0 && chainIds[0] == uint16(block.chainid)) {
-            _swapOnDex(dexes[0], tokens[0], tokens[1], amounts[0]);
-        }
-
-        // If there's a bridge operation to perform, handle it
-        if (bridges.length > 0 && chainIds.length > 1) {
-            _executeBridge(
-                bridges[0],
-                tokens[1],
-                amounts[1],
-                chainIds[1],
-                recipient
-            );
-
-            // Prepare the next payload for the subsequent chain
-            uint16[] memory nextChainIds = new uint16[](chainIds.length - 1);
-            address[] memory nextTokens = new address[](tokens.length - 1);
-            uint256[] memory nextAmounts = new uint256[](amounts.length - 1);
-            address[] memory nextDexes = new address[](dexes.length - 1);
-            address[] memory nextBridges = new address[](bridges.length - 1);
-
-            // Populate the next operation's details
-            for (uint i = 1; i < chainIds.length; i++) {
-                nextChainIds[i - 1] = chainIds[i];
-                nextTokens[i - 1] = tokens[i];
-                nextAmounts[i - 1] = amounts[i];
-                if (i < dexes.length) {
-                    nextDexes[i - 1] = dexes[i];
-                }
-                if (i < bridges.length) {
-                    nextBridges[i - 1] = bridges[i];
-                }
-            }
-
-            // Encode the next payload
-            bytes memory nextPayload = abi.encode(
-                nextTokens,
-                nextAmounts,
-                nextDexes,
-                nextBridges,
-                nextChainIds,
-                recipient,
-                nonce,
-                signature
-            );
-
-            // Send the payload to the next chain (using a mocked LayerZero function)
-            _lzSend(
-                chainIds[1],
-                nextPayload,
-                abi.encode(uint16(1), uint256(200000)), // Simulating adapterParams
-                MessagingFee({nativeFee: 0, lzTokenFee: 0}),
-                payable(msg.sender)
-            );
-        } else if (dexes.length > 1) {
-            // If no bridging is required and there are more swaps to perform on the same chain
-            _swapOnDex(dexes[1], tokens[1], tokens[2], amounts[1]);
-        }
-
-        // Log the completion of the operation
-        console.log("Completed cross-chain operation");
     }
 }

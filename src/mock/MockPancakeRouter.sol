@@ -100,30 +100,87 @@ contract MockPancakeRouter is IUniswapV2Router02 {
         require(amountIn > 0, "Amount in must be greater than 0");
         require(path.length >= 2, "Path length must be at least 2");
 
-        IERC20 inputToken = IERC20(path[0]);
-        IERC20 outputToken = IERC20(path[path.length - 1]);
+        // Initialize the amounts array to track the amounts of each token in the path
+        amounts = new uint[](path.length);
+
+        // Set the input amount as the first element in the amounts array
+        amounts[0] = amountIn;
 
         // Simulate token transfer to the router
+        IERC20 inputToken = IERC20(path[0]);
         inputToken.transferFrom(msg.sender, address(this), amountIn);
 
-        // Ensure the router has a sufficient balance of the output token
+        // Perform the swaps along the path
+        for (uint i = 1; i < path.length; i++) {
+            IERC20 fromToken = IERC20(path[i - 1]);
+            IERC20 toToken = IERC20(path[i]);
+
+            // Simulate the output amount for this hop (e.g., 1:1 ratio for simplicity)
+            // In a real scenario, this would involve calculating the output based on the exchange rate
+            uint amountOut = amounts[i - 1]; // This can be more complex depending on your needs
+            require(amountOut > 0, "Insufficient amount out");
+
+            // Store the amount out in the amounts array for the next hop
+            amounts[i] = amountOut;
+
+            // Simulate the transfer to the next token in the path
+            fromToken.transfer(address(this), amounts[i - 1]);
+            require(
+                toToken.balanceOf(address(this)) >= amounts[i],
+                "Insufficient output token balance"
+            );
+
+            // Transfer the output tokens to the recipient if it's the last token in the path
+            if (i == path.length - 1) {
+                require(
+                    amounts[i] >= amountOutMin,
+                    "Insufficient final output amount"
+                );
+                toToken.transfer(to, amounts[i]);
+            }
+        }
+
+        // Ensure the last output amount meets the minimum output requirement
         require(
-            outputToken.balanceOf(address(this)) >= amountOutMin,
-            "Insufficient output token balance"
+            amounts[path.length - 1] >= amountOutMin,
+            "Insufficient final output amount"
         );
-
-        // Simulate the output amount (e.g., 1:1 ratio for simplicity)
-        uint amountOut = amountIn; // This can be more complex depending on your needs
-        require(amountOut >= amountOutMin, "Insufficient output amount");
-
-        // Transfer the output tokens to the recipient
-        outputToken.transfer(to, amountOut);
-
-        // Return the amounts array
-        amounts = new uint[](path.length);
-        amounts[0] = amountIn;
-        amounts[path.length - 1] = amountOut;
     }
+
+    // function swapExactTokensForTokens(
+    //     uint amountIn,
+    //     uint amountOutMin,
+    //     address[] calldata path,
+    //     address to,
+    //     uint deadline
+    // ) external override returns (uint[] memory amounts) {
+    //     require(amountIn > 0, "Amount in must be greater than 0");
+    //     require(path.length >= 2, "Path length must be at least 2");
+
+    //     IERC20 inputToken = IERC20(path[0]);
+    //     IERC20 outputToken = IERC20(path[path.length - 1]);
+
+    //     // Simulate token transfer to the router
+    //     inputToken.transferFrom(msg.sender, address(this), amountIn);
+
+    //     // Ensure the router has a sufficient balance of the output token
+    //     require(
+    //         outputToken.balanceOf(address(this)) >= amountOutMin,
+    //         "Insufficient output token balance"
+    //     );
+
+    //     // Simulate the output amount (e.g., 1:1 ratio for simplicity)
+    //     uint amountOut = amountIn; // This can be more complex depending on your needs
+    //     require(amountOut >= amountOutMin, "Insufficient output amount");
+
+    //     // Transfer the output tokens to the recipient
+    //     outputToken.transfer(to, amountOut);
+
+    //     // Return the amounts array
+    //     amounts = new uint[](path.length);
+    //     amounts[0] = amountIn;
+    //     amounts[path.length - 1] = amountOut;
+    // }
 
     function swapTokensForExactTokens(
         uint amountOut,

@@ -16,11 +16,12 @@ contract TargetArbitrageContractTest is Test {
     MockLendingPool public mockPool;
     Token public tokenA;
     Token public tokenB;
+    Token public tokenC;
     MockUniswapV2Router public mockUniswapV2; // Uniswap V2 mock for Uniswap-like DEXes
     MockPancakeRouter public mockPancakeRouter; // PancakeSwap mock
     MockBridge public mockBridge;
 
-    address owner = address(0x123);
+    address owner = address(this);
     address mainContract = address(0x456);
 
     function setUp() public {
@@ -29,6 +30,7 @@ contract TargetArbitrageContractTest is Test {
         mockPool = new MockLendingPool();
         tokenA = new Token("Token A", "TKA");
         tokenB = new Token("Token B", "TKB");
+        tokenC = new Token("Token C", "TKC");
         mockUniswapV2 = new MockUniswapV2Router();
         mockPancakeRouter = new MockPancakeRouter();
         mockBridge = new MockBridge();
@@ -42,6 +44,10 @@ contract TargetArbitrageContractTest is Test {
         // Mint or transfer Token B to the mock Uniswap V2 router
         tokenB.mint(address(mockUniswapV2), 1e18);
         tokenB.mint(address(mockPancakeRouter), 1e18);
+
+        tokenC.mint(address(this), 1e18);
+        tokenC.mint(address(mockUniswapV2), 1e18);
+        tokenC.mint(address(mockPancakeRouter), 1e18);
 
         // Alternatively, you can transfer Token B if it already exists:
         // tokenB.transfer(address(mockUniswapV2), 1e18);
@@ -203,21 +209,35 @@ contract TargetArbitrageContractTest is Test {
         vm.startPrank(owner);
         targetContract.authorizedDex(address(mockUniswapV2), true);
         tokenA.mint(address(this), 1e18);
+        console.log(address(tokenA));
         tokenA.approve(address(targetContract), 1e18);
         tokenA.transfer(address(targetContract), 1e18);
+        tokenB.mint(address(this), 1e18);
+        console.log(address(tokenB));
 
-        address[] memory tokens = new address[](2);
+        tokenB.approve(address(targetContract), 1e18);
+        tokenB.transfer(address(targetContract), 1e18);
+
+        address[] memory tokens = new address[](4);
         tokens[0] = address(tokenA);
         tokens[1] = address(tokenB);
+        tokens[2] = address(tokenC);
+        tokens[3] = address(tokenA);
 
-        uint256[] memory amounts = new uint256[](2);
+        uint256[] memory amounts = new uint256[](4);
         amounts[0] = 1e5;
+        amounts[1] = 1e5;
+        amounts[2] = 1e5;
 
-        address[] memory dexes = new address[](1);
+        address[] memory dexes = new address[](3);
         dexes[0] = address(mockUniswapV2);
+        dexes[1] = address(mockPancakeRouter);
+        dexes[2] = address(mockUniswapV2);
 
-        uint16[] memory chainIds = new uint16[](1);
+        uint16[] memory chainIds = new uint16[](3);
         chainIds[0] = uint16(block.chainid);
+        chainIds[1] = uint16(block.chainid);
+        chainIds[2] = uint16(block.chainid);
 
         address[] memory bridges = new address[](1);
         bytes memory params = abi.encode(
@@ -237,7 +257,7 @@ contract TargetArbitrageContractTest is Test {
             params
         );
 
-        assertEq(tokenB.balanceOf(address(targetContract)), 1e5);
+        assertEq(tokenA.balanceOf(address(targetContract)), 1e18);
         vm.stopPrank();
     }
 
