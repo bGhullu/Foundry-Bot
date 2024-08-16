@@ -10,6 +10,7 @@ import "@aave/contracts/flashloan/interfaces/IFlashLoanReceiver.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswapV3/contracts/interfaces/ISwapRouter.sol";
+import {TransferHelper} from "@uniswapV3/contracts/libraries/TransferHelper.sol";
 import "forge-std/console.sol";
 
 interface IPankcakeRouter is IUniswapV2Router02 {}
@@ -567,10 +568,6 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 );
 
                 if (_chainIds[i] != _chainIds[i + 1]) {
-                    IERC20(_tokens[lastSwapIndex + 1]).approve(
-                        _bridges[bridgeIndex],
-                        _amounts[lastSwapIndex]
-                    );
                     _executeBridge(
                         _bridges[bridgeIndex],
                         _tokens[lastSwapIndex + 1],
@@ -783,18 +780,25 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint256 amountIn,
         address dexRouterAddress
     ) public {
-        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        uint256 deadline = block.timestamp + 30;
+        uint256 swap_amount_out = 0;
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
-        IUniswapV2Router02(dexRouterAddress).swapExactTokensForTokens(
-            amountIn,
-            1,
-            path,
-            address(this),
-            block.timestamp + 200
+        TransferHelper.safeApprove(
+            tokenIn,
+            address(dexRouterAddress),
+            amountIn
         );
+        swap_amount_out = IUniswapV2Router02(dexRouterAddress)
+            .swapExactTokensForTokens({
+                amountIn: amountIn,
+                amountOutMin: 0,
+                path: path,
+                to: address(this),
+                deadline: deadline
+            })[1];
     }
 
     function swapOnUniswapV3(
