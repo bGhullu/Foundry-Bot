@@ -49,6 +49,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
     event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
     event DexAuthorized(address indexed dex, bool status);
     event BridgeAuthorized(address indexed bridge, bool status);
+    event BridgeInitiated(
+        address indexed token,
+        address recipient,
+        uint16 destinationChainId
+    );
 
     IPool public lendingPool;
     address public mainContract;
@@ -576,6 +581,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                         _recipient
                     );
                     bridgeIndex++;
+                    _waitForBridgeCompletion(
+                        _tokens[lastSwapIndex + 1],
+                        _recipient,
+                        _chainIds[i + 1]
+                    );
                 }
 
                 lastSwapIndex++;
@@ -715,6 +725,33 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
 
         require(success, "Bridge failed");
         emit BridgeExecuted(bridgeAddress, token, amount, chainId);
+    }
+
+    function _waitForBridgeCompletion(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {
+        emit BridgeInitiated(token, recipient, destinationChainId);
+
+        _notifyMainContractBridgeInitiated(
+            token,
+            recipient,
+            destinationChainId
+        );
+    }
+
+    function _notifyMainContractBridgeInitiated(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {
+        bytes memory payload = abi.encode(token, recipient, destinationChainId);
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
     }
 
     function _repayFlashLoan(
