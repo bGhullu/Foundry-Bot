@@ -54,6 +54,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         address recipient,
         uint16 destinationChainId
     );
+    event TokensBridgedBack(
+        address indexed token,
+        uint256 amount,
+        uint16 originalChainId
+    );
 
     IPool public lendingPool;
     address public mainContract;
@@ -604,6 +609,19 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
             }
         }
 
+        if (_chainIds[_chainIds.length - 1] != _originalChainId) {
+            _bridgeTokensBackToOriginalChain(
+                assets,
+                amounts,
+                premiums,
+                _recipient,
+                _originalChainId
+            );
+            _waitForBridgeCompletion(assets[0], _recipient, _originalChainId);
+        } else {
+            _repayFlashLoan(assets, amounts);
+        }
+
         _repayFlashLoan(assets, amounts, premiums);
 
         return true;
@@ -752,6 +770,54 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
 
         _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
+    }
+
+    function _bridgeTokensBackToOriginalChain(
+        address[] memory assets,
+        uint256[] memory amounts,
+        uint256[] memory premiums,
+        address recipient,
+        uint16 originalChainId
+    ) internal {
+        for (uint i = 0; i < assets.length; i++) {
+            _executeBridge(
+                authorizedBridges[assets[i]],
+                assets[i],
+                amounts[i] + premiums[i],
+                originalChainId,
+                recipient
+            );
+
+            emit TokensBridgedBack(
+                assets[i],
+                amounts[i] + premiums[i],
+                originalChainId
+            );
+        }
+
+        _notifyMainContractTokensBridgedBack(
+            assets,
+            amounts,
+            recipient,
+            originalChainId
+        );
+    }
+
+    function _notifyMainContractTokensBridgedBack(
+        address[] memory assets,
+        uint256[] memory amounts,
+        address recipient,
+        uint16 originalChainId
+    ) internal {
+        bytes memory payload = abi.encode(
+            true,
+            abi.encode(assets, amounts, recipient, originalChainId)
+        );
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(originalChainId, payload, options, fee, payable(msg.sender));
     }
 
     function _repayFlashLoan(
