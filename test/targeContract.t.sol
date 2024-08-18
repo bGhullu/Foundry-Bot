@@ -72,19 +72,19 @@ contract MainnetForkTest is Test {
         // Transfer DAI to the contract
         deal(address(dai), address(targetContract), daiAmount);
 
-        address;
+        address[] memory tokens = new address[](2);
         tokens[0] = address(dai);
         tokens[1] = address(usdc);
 
-        uint256;
+        uint256[] memory amounts = new uint256[](1);
         amounts[0] = daiAmount;
 
-        address;
+        address[] memory dexes = new address[](1);
         dexes[0] = dex1;
 
-        address;
+        address[] memory bridges = new address[](1);
 
-        uint16;
+        uint16[] memory chainIds = new uint16[](1);
         chainIds[0] = originalChainId;
 
         targetContract.executeArbitrage(
@@ -103,6 +103,51 @@ contract MainnetForkTest is Test {
         assertTrue(
             usdcBalance > 0,
             "USDC balance should be greater than 0 after swap"
+        );
+    }
+
+    function testMainnetForkCrossChainSwap() public {
+        uint256 daiAmount = 1000 * 10 ** 18;
+
+        // Transfer DAI to the contract
+        deal(address(dai), address(targetContract), daiAmount);
+
+        address[] memory tokens = new address[](3);
+        tokens[0] = address(dai);
+        tokens[1] = address(usdc);
+        tokens[2] = address(weth);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = daiAmount;
+        amounts[1] = daiAmount; // Simulating swap amounts
+
+        address[] memory dexes = new address[](2);
+        dexes[0] = dex1;
+        dexes[1] = dex2;
+
+        address[] memory bridges = new address[](1);
+        bridges[0] = bridge1; // Mock bridge for demonstration
+
+        uint16[] memory chainIds = new uint16[](2);
+        chainIds[0] = 1;
+        chainIds[1] = 2;
+
+        targetContract.executeArbitrage(
+            tokens,
+            amounts,
+            dexes,
+            bridges,
+            chainIds,
+            user,
+            1,
+            "", // Placeholder signature
+            originalChainId
+        );
+
+        uint256 wethBalance = weth.balanceOf(address(targetContract));
+        assertTrue(
+            wethBalance > 0,
+            "WETH balance should be greater than 0 after cross-chain swap"
         );
     }
 }

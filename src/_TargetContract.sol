@@ -46,6 +46,11 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         uint256[] amounts,
         uint256[] premiums
     );
+    event BridgeInitiated(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    );
     event DexFunctionSet(address indexed dex, bytes4 functionSelector);
     event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
     event DexAuthorized(address indexed dex, bool status);
@@ -212,6 +217,133 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
                 signature,
                 originalChainId
             );
+            if (chainIds.length > 1) {
+                bytes memory nextPayload = _createNextPayload(
+                    tokens,
+                    amounts,
+                    dexes,
+                    bridges,
+                    chainIds,
+                    recipient,
+                    nonce,
+                    signature,
+                    originalChainId
+                );
+
+                (, , , , uint16[] memory nextChainIds, , , , ) = abi.decode(
+                    nextPayload,
+                    (
+                        address[],
+                        uint256[],
+                        address[],
+                        address[],
+                        uint16[],
+                        address,
+                        uint256,
+                        bytes,
+                        uint16
+                    )
+                );
+
+                bytes memory options = abi.encode(uint16(1), uint256(200000));
+                MessagingFee memory fee = MessagingFee({
+                    nativeFee: 0,
+                    lzTokenFee: 0
+                });
+
+                _lzSend(
+                    nextChainIds[0],
+                    nextPayload,
+                    options,
+                    fee,
+                    payable(msg.sender)
+                );
+            } else {
+                emit CrossChainSync(
+                    uint16(_origin.srcEid),
+                    _guid,
+                    "Arbitrage completed"
+                );
+            }
+        }
+    }
+
+    function _createNextPayload(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        address[] memory dexes,
+        address[] memory bridges,
+        uint16[] memory chainIds,
+        address recipient,
+        uint256 nonce,
+        bytes memory signature,
+        uint16 originalChainId
+    ) internal pure returns (bytes memory) {
+        if (chainIds.length > 1) {
+            uint operationsPerformed = 0;
+
+            // Count how many operations are performed on the current chain
+            for (uint i = 0; i < chainIds.length; i++) {
+                if (chainIds[i] == chainIds[0]) {
+                    operationsPerformed++;
+                } else {
+                    break;
+                }
+            }
+
+            uint16[] memory nextChainIds = new uint16[](
+                chainIds.length - operationsPerformed
+            );
+            address[] memory nextDexes = new address[](
+                dexes.length - operationsPerformed
+            );
+            address[] memory nextBridges = new address[](
+                bridges.length -
+                    (
+                        operationsPerformed > 1
+                            ? operationsPerformed - 1
+                            : operationsPerformed
+                    )
+            );
+            address[] memory nextTokens = new address[](
+                tokens.length - operationsPerformed
+            );
+            uint256[] memory nextAmounts = new uint256[](
+                amounts.length - operationsPerformed
+            );
+
+            for (uint i = 0; i < nextChainIds.length; i++) {
+                nextChainIds[i] = chainIds[i + operationsPerformed];
+                nextDexes[i] = dexes[i + operationsPerformed];
+                nextTokens[i] = tokens[i + operationsPerformed];
+                nextAmounts[i] = amounts[i + operationsPerformed];
+            }
+
+            for (uint i = 0; i < nextBridges.length; i++) {
+                nextBridges[i] = bridges[
+                    i +
+                        (
+                            operationsPerformed > 1
+                                ? operationsPerformed - 1
+                                : operationsPerformed
+                        )
+                ];
+            }
+
+            return
+                abi.encode(
+                    nextTokens,
+                    nextAmounts,
+                    nextDexes,
+                    nextBridges,
+                    nextChainIds,
+                    recipient,
+                    nonce,
+                    signature,
+                    originalChainId
+                );
+        } else {
+            return ""; // Return an empty payload if there are no further operations
         }
     }
 
