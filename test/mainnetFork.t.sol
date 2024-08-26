@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {TargetArbitrageContract} from "../src/_TargetChainArbitrage.sol"; // Adjust the path as needed
+import {TargetArbitrageContract} from "../src/cross_chain/_TargetChainArbitrage.sol"; // Adjust the path as needed
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 import {IUniswapV2Router02} from "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";

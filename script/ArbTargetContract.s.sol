@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import {TargetArbitrageContract} from "../src/_TargetChainArbitrage.sol";
+import {TargetArbitrageContract} from "../src/cross_chain/_TargetChainArbitrage.sol";
 
 contract DeployTargetArbitrageContract is Script {
     function run() external {

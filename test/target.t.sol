@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/_TargetChainArbitrage.sol";
+import "../src/cross_chain/_TargetChainArbitrage.sol";
 import "../src/mock/MockERC20.sol";
 import "../src/mock/MockEndpoint.sol";
 import "../src/mocK/MockLending.sol";
