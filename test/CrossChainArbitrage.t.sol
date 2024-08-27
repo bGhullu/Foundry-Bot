@@ -42,7 +42,7 @@ contract TesCrossChainArbitrage is Test {
 
     function testSwapOnUniswapV2() public {
         uint256 amountIn = 1 ether; // 1 WETH
-        uint256 amountOutMin = 200e6; // Minimum of 1000 USDC
+        uint256 amountOutMin = 2000e6; //
 
         // Add an appropriate path for the Uniswap V2 swap
         address[] memory path = new address[](2);
