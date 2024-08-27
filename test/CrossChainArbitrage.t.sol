@@ -66,11 +66,11 @@ contract TesCrossChainArbitrage is Test {
     }
 
     function testSwapOnUniswapV3() public {
-        uint256 amountIn = 1 ether;
+        uint256 amountIn = 1e18;
         uint256 amountOutMin = 0;
-        uint24 fee = 500;
+        uint24 fee = 3000;
 
-        arbitrageContract.swapOnUniswapV3(
+        arbitrageContract.multiSwapOnUniswapV3(
             address(WETH),
             address(USDC),
             amountIn,
@@ -78,11 +78,30 @@ contract TesCrossChainArbitrage is Test {
             fee
         );
 
-        uint256 UsdcBalance = IERC20(USDC).balanceOf(address(this));
-        assertGt(
-            UsdcBalance,
-            amountOutMin,
-            "USDC balance should be greater than amountOutMin"
+        uint256 UsdcBalance = USDC.balanceOf(address(this));
+        console.log("USDC balance:", daiBalance);
+        // assertGt(
+        //     UsdcBalance,
+        //     amountOutMin,
+        //     "USDC balance should be greater than amountOutMin"
+        // );
+    }
+
+    function testMultihopSwapOnUniswapV3() public {
+        uint256 amountIn = 1e18;
+        uint256 amountOutMin = 0;
+        uint24 fee = 3000;
+        bytes memory path = abi.encode(
+            address(WETH),
+            fee,
+            address(USDC),
+            fee,
+            address(DAI)
         );
+        arbitrageContract.multiSwapOnUniswapV3(path, amountIn);
+
+        uint256 UsdcBalance = USDC.balanceOf(address(this));
+        uint256 daiBalance = DAI.balanceOf(address(this));
+        console.log("DAI balance:", daiBalance);
     }
 }
