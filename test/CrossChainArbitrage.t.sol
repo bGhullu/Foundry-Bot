@@ -115,8 +115,8 @@ contract TesCrossChainArbitrage is Test {
         );
         arbitrageContract.multiSwapOnUniswapV3(path, amountIn);
 
-        uint256 UsdcBalance = USDC.balanceOf(address(this));
         uint256 daiBalance = DAI.balanceOf(address(this));
+
         console.log("DAI balance:", daiBalance);
     }
 }

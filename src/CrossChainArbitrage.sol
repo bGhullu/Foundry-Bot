@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.5;
+pragma solidity 0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
@@ -70,25 +70,33 @@ contract CrossChainArbitrage is Ownable {
     function multiSwapOnUniswapV3(
         bytes calldata path,
         uint256 amountIn
-    )
-        external
-        returns (
-            // uint256 amountOut
-            uint256 amountOut
-        )
-    {
-        (address token1, , , , ) = abi.decode(
-            path,
-            (address, uint24, address, uint24, address)
-        );
+    ) external returns (uint256 amountOut) {
+        (
+            address token1,
+            uint24 fee1,
+            address token2,
+            uint24 fee2,
+            address token3
+        ) = abi.decode(path, (address, uint24, address, uint24, address));
         console.log("Token1:");
         console.logAddress(token1);
         IERC20(token1).transferFrom(msg.sender, address(this), amountIn);
+        console.log("WETH balance of");
+        console.logAddress(address(this));
+        console.log(IERC20(token1).balanceOf(address(this)));
         IERC20(token1).approve(address(uniswapV3Router), amountIn);
+
+        bytes memory _path = abi.encodePacked(
+            token1,
+            fee1,
+            token2,
+            fee2,
+            token3
+        );
 
         ISwapRouter.ExactInputParams memory params = ISwapRouter
             .ExactInputParams({
-                path: path,
+                path: _path,
                 recipient: msg.sender,
                 deadline: block.timestamp,
                 amountIn: amountIn,
