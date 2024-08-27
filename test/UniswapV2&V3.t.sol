@@ -7,13 +7,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "@uniswapV3/contracts/interfaces/ISwapRouter.sol";
-import "../src/CrossChainArbitrage.sol";
+import "../src/SwapOnUniswap.sol";
 import "forge-std/console.sol";
 
-contract TesCrossChainArbitrage is Test {
+contract TestUniswap is Test {
     CrossChainArbitrage public arbitrageContract;
 
     address public owner;
+
+    address public constant UNISWAP_V2_ROUTER =
+        0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24;
+    address public constant UNISWAP_V3_ROUTER =
+        0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     /**
      * @notice mainnet address
@@ -28,11 +33,6 @@ contract TesCrossChainArbitrage is Test {
     /**
      * @notice arbitrum address
      */
-    address public constant UNISWAP_V2_ROUTER =
-        0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24;
-    address public constant UNISWAP_V3_ROUTER =
-        0xE592427A0AEce92De3Edee1F18E0157C05861564;
-
     // 0x5E325eDA8064b456f4781070C0738d849c824258;
     // IERC20 public constant WETH =
     //     IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
