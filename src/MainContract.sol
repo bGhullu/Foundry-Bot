@@ -118,4 +118,75 @@ contract MainContract is OApp, Ownable {
                 )
             );
     }
+
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata payload,
+        address _executor,
+        bytes calldata _extraData
+    ) internal override {
+        (string memory messageType, bytes memory messageData) = abi.decode(
+            payload,
+            (string, bytes)
+        );
+        if (keccak256(bytes(messageType)) == keccak256("ARBITRAGE")) {
+            (
+                address[] memory tokens,
+                uint256[] memory amounts,
+                address[] memory dexes,
+                address[] memory bridges,
+                uint16[] memory chainIds,
+                address recipient,
+                uint256 nonce,
+                bytes memory signature
+            ) = abi.decode(
+                    messageData,
+                    (
+                        address[],
+                        uint256[],
+                        address[],
+                        address[],
+                        uint16[],
+                        address,
+                        uint256,
+                        bytes
+                    )
+                );
+            arbParams = ArbParams(
+                tokens,
+                amounts,
+                dexes,
+                bridges,
+                chainIds,
+                recipient,
+                nonce,
+                signature
+            );
+
+            bytes memory newPayload = abi.encode(
+                tokens,
+                amounts,
+                dexes,
+                bridges,
+                chainIds,
+                recipient,
+                nonce,
+                signature
+            );
+            bytes memory options = abi.encode(uint16(1), uint256(200000));
+            MessagingFee memory fee = MessagingFee({
+                nativeFee: 0,
+                lzTokenFee: 0
+            });
+
+            emit Debug("Executing _lzSend with newPayload");
+
+            _lzSend(chainIds[1], newPayload, options, fee, payable(msg.sender));
+        } else if (keccak256(bytes(messageType)) == keccak256("SYNC")) {
+            (uint16 originalChainId, bytes32 syncId, string memory status) = abi
+                .decode(messageData, (uint16, bytes32, string));
+            emit CrossChainSync(originalChainId, syncId, status);
+        }
+    }
 }
