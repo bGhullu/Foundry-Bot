@@ -7,6 +7,16 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract MainContract is OApp, Ownable {
+    using ECDSA for bytes32;
+
+    event PeersSet(uint16 chainId, bytes32 arbitrageContract);
+    event CrossChainSync(uint16 originalChainId, bytes32 syncId, string status);
+    event Debug(string message);
+    event DebugAddress(string message, address addr);
+    event DebugBytes(string message, bytes data);
+    event DebugUint(string message, uint value);
+    event DebugBytes32(string message, bytes32 data);
+
     address endpoint;
 
     constructor(
