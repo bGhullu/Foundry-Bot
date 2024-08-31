@@ -5,8 +5,9 @@ pragma solidity 0.8.26;
 import {OApp, MessagingFee, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-contract MainContract is OApp, Ownable {
+contract MainContract is Ownable, OApp {
     using ECDSA for bytes32;
 
     event PeersSet(uint16 chainId, bytes32 arbitrageContract);
@@ -17,12 +18,24 @@ contract MainContract is OApp, Ownable {
     event DebugUint(string message, uint value);
     event DebugBytes32(string message, bytes32 data);
 
-    address endpoint;
+    struct ArbParams {
+        address[] tokens;
+        uint256[] amounts;
+        address[] dexes;
+        address[] bridges;
+        uint16[] chainIds;
+        address recipient;
+        uint256 nonce;
+        bytes signature;
+    }
+
+    ArbParams public arbParams;
+    address public endPoint;
 
     constructor(
         address _endpoint
     ) OApp(_endpoint, msg.sender) Ownable(msg.sender) {
-        endpoint = _endpoint;
+        endPoint = _endpoint;
     }
 
     function setChainToArbitrageContract(

@@ -11,7 +11,7 @@ import "../src/SwapOnUniswap.sol";
 import "forge-std/console.sol";
 
 contract TestUniswap is Test {
-    CrossChainArbitrage public arbitrageContract;
+    SwapOnUniswap public arbitrageContract;
 
     address public owner;
 
@@ -43,7 +43,7 @@ contract TestUniswap is Test {
 
     function setUp() public {
         owner = msg.sender;
-        arbitrageContract = new CrossChainArbitrage(
+        arbitrageContract = new SwapOnUniswap(
             IUniswapV2Router02(UNISWAP_V2_ROUTER),
             ISwapRouter(UNISWAP_V3_ROUTER)
         );
