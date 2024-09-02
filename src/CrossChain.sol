@@ -20,6 +20,12 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
     using ECDSA for bytes32;
 
     error TargetContract__UnauthorizedCaller();
+    error TargetContract__InvalidAddress();
+
+    event DexFunctionSet(address indexed dex, bytes4 functionSelector);
+    event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
+    event DexAuthorized(address indexed dex, bool status);
+    event BridgeAuthorized(address indexed bridge, bool status);
 
     IPool public lendingPool;
     address public mainContract;
@@ -56,10 +62,55 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         );
     }
 
+    function setMainContract(address _mainContractAddrs) external onlyOwner {
+        if (_mainContractAddrs == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        mainContract = _mainContractAddrs;
+    }
+
     function _initializeDexAndBridgeMappings(
         address[] memory dexAddress,
         bytes4[] memory dexFunctionSelector,
         address[] memory bridgeAddress,
         bytes4[] memory bridgeFuncitonSelector
     ) internal {}
+
+    function setDexFunction(
+        address _dexAddress,
+        bytes4 _functionSelector
+    ) external onlyOwner {
+        if (_dexAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        dexFunctionMapping[_dexAddress] = _functionSelector;
+        emit DexFunctionSet(_dexAddress, _functionSelector);
+    }
+
+    function setBridgeFunction(
+        address _bridgeAddress,
+        bytes4 _functionSelector
+    ) external onlyOwner {
+        if (_bridgeAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
+        emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
+    }
+
+    function authorizedDex(
+        address _dexAddress,
+        bool _status
+    ) external onlyOwner {
+        authorizedDexes[_dexAddress] = _status;
+        emit DexAuthorized(_dexAddress, _status);
+    }
+
+    function authorizedBridge(
+        address _bridgeAddress,
+        bool _status
+    ) external onlyOwner {
+        authorizedBridges[_bridgeAddress] = _status;
+        emit BridgeAuthorized(_bridgeAddress, _status);
+    }
 }
