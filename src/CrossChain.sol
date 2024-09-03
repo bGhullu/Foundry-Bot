@@ -26,6 +26,7 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
     event BridgeFunctionSet(address indexed bridge, bytes4 functionSelector);
     event DexAuthorized(address indexed dex, bool status);
     event BridgeAuthorized(address indexed bridge, bool status);
+    event CrossChainSync(uint16 chainId, bytes32 syncId, string status);
 
     IPool public lendingPool;
     address public mainContract;
@@ -113,4 +114,115 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         authorizedBridges[_bridgeAddress] = _status;
         emit BridgeAuthorized(_bridgeAddress, _status);
     }
+
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _payload,
+        address _executor,
+        bytes calldata _extraData
+    ) internal override {
+        (
+            address[] memory tokens,
+            uint256[] memory amounts,
+            address[] memory dexes,
+            address[] memory bridges,
+            uint16[] memory chainIds,
+            address recipient,
+            uint256 nonce,
+            bytes memory signature
+        ) = abi.decode(
+                _payload,
+                (
+                    address[],
+                    uint256[],
+                    address[],
+                    address[],
+                    uint16[],
+                    address,
+                    uint256,
+                    bytes
+                )
+            );
+
+        _executeArbitrage(
+            tokens,
+            amounts,
+            dexes,
+            bridges,
+            chainIds,
+            recipient,
+            nonce,
+            signature
+        );
+
+        if (chainIds.length > 1) {
+            bytes memory nextPayload = _createNextPayload(
+                tokens,
+                amounts,
+                dexes,
+                bridges,
+                chainIds,
+                recipient,
+                nonce,
+                signature
+            );
+
+            (, , , , uint16[] memory nextChainIds, , , ) = abi.decode(
+                nextPayload,
+                (
+                    address[],
+                    uint256[],
+                    address[],
+                    address[],
+                    uint16[],
+                    address,
+                    uint256,
+                    bytes
+                )
+            );
+
+            bytes memory options = abi.encode(uint16(1), uint256(200000));
+            MessagingFee memory fee = MessagingFee({
+                nativeFee: 0,
+                lzTokenFee: 0
+            });
+
+            _lzSend(
+                nextChainIds[0],
+                nextPayload,
+                options,
+                fee,
+                payable(msg.sender)
+            );
+        } else {
+            emit CrossChainSync(
+                uint16(_origin.srcEid),
+                _guid,
+                "Arbitrage completed"
+            );
+        }
+    }
+
+    function _createNextPayload(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        address[] memory dexes,
+        address[] memory bridges,
+        uint16[] memory chainIds,
+        address recipient,
+        uint256 nonce,
+        bytes memory signature
+    ) internal pure returns (bytes memory) {}
+
+    function _executeArbitrage(
+        address[] memory _tokens,
+        uint256[] memory _amounts,
+        address[] memory _dexes,
+        address[] memory _bridges,
+        uint16[] memory _chainIds,
+        address _recipient,
+        uint256 _nonce,
+        bytes memory _signature
+    ) internal onlyMainOrOwner {}
 }
