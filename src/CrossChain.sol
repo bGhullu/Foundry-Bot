@@ -316,5 +316,29 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         address[] memory _dexes,
         address[] memory _bridges,
         address _recipient
-    ) public {}
+    ) public {
+        uint256[] memory modes = new uint256[](_tokens.length);
+
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            modes[i] = 0; // 0 means no debt
+        }
+
+        bytes memory params = abi.encode(
+            _tokens,
+            _amounts,
+            _dexes,
+            _bridges,
+            _recipient
+        );
+
+        lendingPool.flashLoan(
+            address(this),
+            _tokens,
+            _amounts,
+            modes,
+            address(this),
+            params,
+            0
+        );
+    }
 }
