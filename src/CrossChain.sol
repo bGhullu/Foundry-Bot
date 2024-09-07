@@ -27,6 +27,12 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
     event DexAuthorized(address indexed dex, bool status);
     event BridgeAuthorized(address indexed bridge, bool status);
     event CrossChainSync(uint16 chainId, bytes32 syncId, string status);
+    event SwapExecuted(
+        address indexed dex,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    );
 
     IPool public lendingPool;
     address public mainContract;
@@ -340,5 +346,28 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
             params,
             0
         );
+    }
+
+    function _swapOnDex(
+        address dexAddress,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) internal {
+        bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
+        require(swapFunctionSelector != bytes4(0), "DEX function not set");
+
+        (bool success, ) = address(this).delegatecall(
+            abi.encodeWithSelector(
+                swapFunctionSelector,
+                tokenIn,
+                tokenOut,
+                amountIn,
+                dexAddress
+            )
+        );
+
+        require(success, "Swap on DEX failed");
+        emit SwapExecuted(dexAddress, tokenIn, tokenOut, amountIn);
     }
 }
