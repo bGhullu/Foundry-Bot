@@ -33,6 +33,12 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         address tokenOut,
         uint256 amountIn
     );
+    event BridgeExecuted(
+        address indexed bridge,
+        address token,
+        uint256 amount,
+        uint16 chainId
+    );
 
     IPool public lendingPool;
     address public mainContract;
@@ -369,5 +375,29 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
 
         require(success, "Swap on DEX failed");
         emit SwapExecuted(dexAddress, tokenIn, tokenOut, amountIn);
+    }
+
+    function _executeBridge(
+        address bridgeAddress,
+        address token,
+        uint256 amount,
+        uint16 chainId,
+        address recipient
+    ) public {
+        require(authorizedBridges[bridgeAddress], "Bridge not authorized");
+
+        bytes4 bridgeFunctionSelector = bridgeFunctionMapping[bridgeAddress];
+        (bool success, ) = bridgeAddress.call(
+            abi.encodeWithSelector(
+                bridgeFunctionSelector,
+                token,
+                amount,
+                chainId,
+                recipient
+            )
+        );
+
+        require(success, "Bridge failed");
+        emit BridgeExecuted(bridgeAddress, token, amount, chainId);
     }
 }
