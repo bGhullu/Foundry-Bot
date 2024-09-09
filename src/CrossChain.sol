@@ -400,4 +400,28 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         require(success, "Bridge failed");
         emit BridgeExecuted(bridgeAddress, token, amount, chainId);
     }
+
+    function _repayFlashLoan(
+        address[] memory assets,
+        uint256[] memory amounts,
+        uint256[] memory premiums
+    ) internal {
+        require(
+            assets.length == amounts.length,
+            "Mismatched assets and amounts"
+        );
+        require(
+            assets.length == premiums.length,
+            "Mismatched assets and premiums"
+        );
+
+        for (uint i = 0; i < assets.length; i++) {
+            // Repay each flash loan
+            uint amountOwed = amounts[i] + premiums[i];
+
+            IERC20(assets[i]).approve(address(lendingPool), amountOwed);
+            // Assuming the function to repay looks something like this:
+            // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
+        }
+    }
 }
