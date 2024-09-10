@@ -401,6 +401,101 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         emit BridgeExecuted(bridgeAddress, token, amount, chainId);
     }
 
+    function executeOperation(
+        address[] memory assets,
+        uint256[] memory amounts,
+        uint256[] memory premiums,
+        address initiator,
+        bytes memory params
+    ) external override returns (bool) {
+        require(
+            msg.sender == address(lendingPool),
+            "Caller is not the lending pool"
+        );
+
+        (
+            address[] memory _tokens,
+            uint256[] memory _amounts,
+            address[] memory _dexes,
+            address[] memory _bridges,
+            uint16[] memory _chainIds,
+            address _recipient
+        ) = abi.decode(
+                params,
+                (address[], uint256[], address[], address[], uint16[], address)
+            );
+
+        // Ensure that assets, amounts, and premiums lengths match
+        require(
+            assets.length == amounts.length,
+            "Mismatched assets and amounts"
+        );
+        require(
+            assets.length == premiums.length,
+            "Mismatched assets and premiums"
+        );
+
+        uint lastSwapIndex = 0;
+        uint bridgeIndex = 0;
+
+        if (_chainIds.length == 1 && _dexes.length == 1) {
+            _swapOnDex(_dexes[0], _tokens[0], _tokens[1], _amounts[0]);
+            _repayFlashLoan(assets, amounts, premiums);
+            return true;
+        } else {
+            for (uint i = 0; i < _chainIds.length - 1; i++) {
+                require(
+                    lastSwapIndex < _dexes.length,
+                    "DEX index out of bounds"
+                );
+                require(
+                    lastSwapIndex < _tokens.length - 1,
+                    "Token index out of bounds"
+                );
+
+                _swapOnDex(
+                    _dexes[lastSwapIndex],
+                    _tokens[lastSwapIndex],
+                    _tokens[lastSwapIndex + 1],
+                    _amounts[lastSwapIndex]
+                );
+
+                if (_chainIds[i] != _chainIds[i + 1]) {
+                    _executeBridge(
+                        _bridges[bridgeIndex],
+                        _tokens[lastSwapIndex + 1],
+                        _amounts[lastSwapIndex],
+                        _chainIds[i + 1],
+                        _recipient
+                    );
+                    bridgeIndex++;
+                    _waitForBridgeCompletion(
+                        _tokens[lastSwapIndex + 1],
+                        _recipient,
+                        _chainIds[i + 1]
+                    );
+                }
+
+                lastSwapIndex++;
+            }
+
+            if (
+                lastSwapIndex < _dexes.length &&
+                lastSwapIndex < _tokens.length - 1
+            ) {
+                _swapOnDex(
+                    _dexes[lastSwapIndex],
+                    _tokens[lastSwapIndex],
+                    _tokens[lastSwapIndex + 1],
+                    _amounts[lastSwapIndex]
+                );
+            }
+        }
+        _repayFlashLoan(assets, amounts, premiums);
+
+        return true;
+    }
+
     function _repayFlashLoan(
         address[] memory assets,
         uint256[] memory amounts,
@@ -424,4 +519,10 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
             // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
         }
     }
+
+    function _waitForBridgeCompletion(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {}
 }
