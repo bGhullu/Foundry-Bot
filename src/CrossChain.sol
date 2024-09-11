@@ -40,6 +40,12 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         uint16 chainId
     );
 
+    event BridgeInitiated(
+        address indexed token,
+        address recipient,
+        uint16 destinationChainId
+    );
+
     IPool public lendingPool;
     address public mainContract;
     mapping(address => bytes4) public dexFunctionMapping;
@@ -521,6 +527,20 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
     }
 
     function _waitForBridgeCompletion(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {
+        emit BridgeInitiated(token, recipient, destinationChainId);
+
+        _notifyMainContractBridgeInitiated(
+            token,
+            recipient,
+            destinationChainId
+        );
+    }
+
+    function _notifyMainContractBridgeInitiated(
         address token,
         address recipient,
         uint16 destinationChainId
