@@ -544,5 +544,12 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         address token,
         address recipient,
         uint16 destinationChainId
-    ) internal {}
+    ) internal {
+        bytes memory payload = abi.encode(token, recipient, destinationChainId);
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
+    }
 }
