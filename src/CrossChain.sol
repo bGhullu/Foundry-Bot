@@ -10,6 +10,7 @@ import "@aave/contracts/flashloan/interfaces/IFlashLoanReceiver.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswapV3/contracts/interfaces/ISwapRouter.sol";
+import {TransferHelper} from "@uniswapV3/contracts/libraries/TransferHelper.sol";
 import "forge-std/console.sol";
 
 interface IPankcakeRouter is IUniswapV2Router02 {}
@@ -551,5 +552,54 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
 
         _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
+    }
+
+    function swapOnUniswapV2(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) public {
+        uint256 deadline = block.timestamp + 30;
+        uint256 swap_amount_out = 0;
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        TransferHelper.safeApprove(
+            tokenIn,
+            address(dexRouterAddress),
+            amountIn
+        );
+        swap_amount_out = IUniswapV2Router02(dexRouterAddress)
+            .swapExactTokensForTokens({
+                amountIn: amountIn,
+                amountOutMin: 0,
+                path: path,
+                to: address(this),
+                deadline: deadline
+            })[1];
+    }
+
+    function swapOnUniswapV3(
+        address tokenIn,
+        address tokenOut,
+        uint24 fee,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) public {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+            .ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: fee,
+                recipient: address(this),
+                deadline: block.timestamp + 200,
+                amountIn: amountIn,
+                amountOutMinimum: 1,
+                sqrtPriceLimitX96: 0
+            });
+        ISwapRouter(dexRouterAddress).exactInputSingle(params);
     }
 }
