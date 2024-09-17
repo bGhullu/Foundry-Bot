@@ -571,6 +571,38 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         }
     }
 
+    function _bridgeTokensBackToOriginalChain(
+        address[] memory assets,
+        uint256[] memory amounts,
+        uint256[] memory premiums,
+        address recipient,
+        uint16 originalChainId
+    ) internal {
+        for (uint i = 0; i < assets.length; i++) {
+            _executeBridge(
+                // authorizedBridges[assets[i]],
+                assets[i],
+                amounts[i] + premiums[i],
+                originalChainId,
+                recipient
+            );
+
+            _notifyMainContractTokensBridgedBack(
+                assets,
+                amounts,
+                recipient,
+                originalChainId
+            );
+        }
+    }
+
+    function _notifyMainContractTokensBridgedBack(
+        address[] memory assets,
+        uint256[] memory amounts,
+        address recipient,
+        uint16 originalChainId
+    ) internal {}
+
     function _notifyMainContractBridgeInitiated(
         address token,
         address recipient,
