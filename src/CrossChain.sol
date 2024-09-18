@@ -696,4 +696,20 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
     function POOL() external view override returns (IPool) {
         return lendingPool;
     }
+
+    function testLzSend(uint16 _dstChainId, bytes calldata _payload) external {
+        bytes32 peer = peers[_dstChainId];
+        console.log("Attempting to send to chainId:", _dstChainId);
+        console.log(" with peer address:");
+        console.logBytes32(peer);
+        require(peer != bytes32(0), "NoPeer");
+
+        _lzSend(
+            _dstChainId,
+            _payload,
+            abi.encode(uint16(1), uint256(200000)),
+            MessagingFee({nativeFee: 0, lzTokenFee: 0}),
+            payable(msg.sender)
+        );
+    }
 }
