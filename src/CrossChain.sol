@@ -659,16 +659,4 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
             block.timestamp + 200
         );
     }
-
-    function ADDRESSES_PROVIDER()
-        external
-        pure
-        returns (IPoolAddressesProvider)
-    {
-        return IPoolAddressesProvider(address(0));
-    }
-
-    function POOL() external view override returns (IPool) {
-        return lendingPool;
-    }
 }
