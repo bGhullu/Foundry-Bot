@@ -538,30 +538,7 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         bytes4[] memory dexFunctionSelectors,
         address[] memory bridgeAddresses,
         bytes4[] memory bridgeFunctionSelectors
-    ) public {
-        require(
-            dexAddresses.length == dexFunctionSelectors.length,
-            "DEX addresses and function selectors length mismatch"
-        );
-        require(
-            bridgeAddresses.length == bridgeFunctionSelectors.length,
-            "Bridge addresses and function selectors length mismatch"
-        );
-
-        // Initialize DEX mappings
-        for (uint i = 0; i < dexAddresses.length; i++) {
-            dexFunctionMapping[dexAddresses[i]] = dexFunctionSelectors[i];
-            authorizedDexes[dexAddresses[i]] = true;
-        }
-
-        // Initialize Bridge mappings
-        for (uint i = 0; i < bridgeAddresses.length; i++) {
-            bridgeFunctionMapping[bridgeAddresses[i]] = bridgeFunctionSelectors[
-                i
-            ];
-            authorizedBridges[bridgeAddresses[i]] = true;
-        }
-    }
+    ) public {}
 
     function _notifyMainContractTokensBridgedBack(
         address[] memory assets,
