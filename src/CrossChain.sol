@@ -390,23 +390,7 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         uint256 amount,
         uint16 chainId,
         address recipient
-    ) public {
-        require(authorizedBridges[bridgeAddress], "Bridge not authorized");
-
-        bytes4 bridgeFunctionSelector = bridgeFunctionMapping[bridgeAddress];
-        (bool success, ) = bridgeAddress.call(
-            abi.encodeWithSelector(
-                bridgeFunctionSelector,
-                token,
-                amount,
-                chainId,
-                recipient
-            )
-        );
-
-        require(success, "Bridge failed");
-        emit BridgeExecuted(bridgeAddress, token, amount, chainId);
-    }
+    ) public {}
 
     function executeOperation(
         address[] memory assets,
