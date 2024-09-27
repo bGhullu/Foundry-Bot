@@ -309,25 +309,7 @@ contract CrossChain is Ownable, OApp, IFlashLoanReceiver {
         address _recipient,
         uint256 _nonce,
         bytes memory _signature
-    ) internal onlyMainOrOwner {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                _tokens,
-                _amounts,
-                _dexes,
-                _chainIds,
-                _recipient,
-                _nonce
-            )
-        );
-
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
-            messageHash
-        );
-        address signer = ECDSA.recover(ethSignedMessageHash, _signature);
-        require(signer == owner(), "Invalid Signature");
-        _initiateFlashLoan(_tokens, _amounts, _dexes, _bridges, _recipient);
-    }
+    ) internal onlyMainOrOwner {}
 
     function _initiateFlashLoan(
         address[] memory _tokens,
