@@ -8,20 +8,20 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
-import "@aave/contracts/flashloan/interfaces/IFlashLoanReceiver.sol";
+import "@aave/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol";
+import "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "forge-std/console.sol";
 
-contract TargetContract is Ownable, IFlashLoanReceiver {
+contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     error TargetContract__UnauthorizedCaller();
-    IPool public lendingPool;
+    IPoolAddressesProvider public immutable provider;
+    IPool public immutable pool;
     address private immutable mainContract;
 
-    constructor(
-        address _lendingPool,
-        address _mainContract
-    ) Ownable(msg.sender) {
-        lendingPool = IPool(_lendingPool);
+    constructor(address _provider, address _mainContract) Ownable(msg.sender) {
+        provider = IPoolAddressesProvider(_provider);
+        pool = IPool(provider.getPool());
         mainContract = _mainContract;
     }
 
@@ -33,7 +33,18 @@ contract TargetContract is Ownable, IFlashLoanReceiver {
     }
 
     function _intialFlashLoan(
-        address memory _token,
-        uint256 memory _amounts
-    ) internal {}
+        address _token,
+        uint256 _amount
+    ) internal onlyMainOrOwner {
+        address receiverAddress = address(this);
+        bytes memory params = "";
+        uint16 referralCode = 0;
+        pool.flashLoanSimple(
+            receiverAddress,
+            _token,
+            _amount,
+            params,
+            referralCode
+        );
+    }
 }
