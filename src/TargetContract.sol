@@ -15,6 +15,9 @@ import "forge-std/console.sol";
 
 contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     error TargetContract__UnauthorizedCaller();
+    error TargetContract__CallerMustBeLendingPool();
+    error TargetContract__InvalidAddress();
+    error TargetContract__UnauthorizedDex();
     IPoolAddressesProvider public immutable provider;
     IPool public immutable pool;
     address private immutable mainContract;
@@ -49,10 +52,40 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     }
 
     function executeOperation(
-        address _token,
-        uint256 _amount,
+        address asset,
+        uint256 amount,
         uint256 premium,
         address initiator,
         bytes calldata params
-    ) external override returns (bool) {}
+    ) external override returns (bool) {
+        if (msg.sender != address(pool)) {
+            revert TargetContract__CallerMustBeLendingPool();
+        }
+
+        //Execute swap on designated DEXes and handle Bridging
+
+        address dexAddress = _dexes;
+        if (dexAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        if (!authorizedDexes[dexAddress]) {
+            revert TargetContract__UnauthorizedDex();
+        }
+        bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
+        (bool success, bytes memory result) = address(this).delegatecall(
+            abi.encodeWithSelector(
+                swapFunctionSelector,
+                _tokenIn,
+                _tokenOut,
+                amount,
+                dexAddress
+            )
+        );
+        require(success, "Swap failed");
+
+        uint256 amountOwing = amount + premium;
+        IERC20(asset).approve(address(pool), amountOwing);
+
+        return true;
+    }
 }
