@@ -71,16 +71,7 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         if (!authorizedDexes[dexAddress]) {
             revert TargetContract__UnauthorizedDex();
         }
-        bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
-        (bool success, bytes memory result) = address(this).delegatecall(
-            abi.encodeWithSelector(
-                swapFunctionSelector,
-                _tokenIn,
-                _tokenOut,
-                amount,
-                dexAddress
-            )
-        );
+
         require(success, "Swap failed");
 
         uint256 amountOwing = amount + premium;
