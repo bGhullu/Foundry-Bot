@@ -16,8 +16,7 @@ import "forge-std/console.sol";
 contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     error TargetContract__UnauthorizedCaller();
     error TargetContract__CallerMustBeLendingPool();
-    error TargetContract__InvalidAddress();
-    error TargetContract__UnauthorizedDex();
+
     IPoolAddressesProvider public immutable provider;
     IPool public immutable pool;
     address private immutable mainContract;
@@ -63,16 +62,6 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         }
 
         //Execute swap on designated DEXes and handle Bridging
-
-        address dexAddress = _dexes;
-        if (dexAddress == address(0)) {
-            revert TargetContract__InvalidAddress();
-        }
-        if (!authorizedDexes[dexAddress]) {
-            revert TargetContract__UnauthorizedDex();
-        }
-
-        require(success, "Swap failed");
 
         uint256 amountOwing = amount + premium;
         IERC20(asset).approve(address(pool), amountOwing);
