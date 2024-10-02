@@ -60,12 +60,5 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         if (msg.sender != address(pool)) {
             revert TargetContract__CallerMustBeLendingPool();
         }
-
-        //Execute swap on designated DEXes and handle Bridging
-
-        uint256 amountOwing = amount + premium;
-        IERC20(asset).approve(address(pool), amountOwing);
-
-        return true;
     }
 }
