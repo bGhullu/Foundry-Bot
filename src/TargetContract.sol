@@ -56,9 +56,5 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         uint256 premium,
         address initiator,
         bytes calldata params
-    ) external override returns (bool) {
-        if (msg.sender != address(pool)) {
-            revert TargetContract__CallerMustBeLendingPool();
-        }
-    }
+    ) external override returns (bool) {}
 }
