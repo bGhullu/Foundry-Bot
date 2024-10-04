@@ -49,12 +49,4 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
             referralCode
         );
     }
-
-    function executeOperation(
-        address asset,
-        uint256 amount,
-        uint256 premium,
-        address initiator,
-        bytes calldata params
-    ) external override returns (bool) {}
 }
