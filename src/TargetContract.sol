@@ -41,12 +41,5 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         address receiverAddress = address(this);
         bytes memory params = "";
         uint16 referralCode = 0;
-        pool.flashLoanSimple(
-            receiverAddress,
-            _token,
-            _amount,
-            params,
-            referralCode
-        );
     }
 }
