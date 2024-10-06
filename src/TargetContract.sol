@@ -33,13 +33,4 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         }
         _;
     }
-
-    function _intialFlashLoan(
-        address _token,
-        uint256 _amount
-    ) internal onlyMainOrOwner {
-        address receiverAddress = address(this);
-        bytes memory params = "";
-        uint16 referralCode = 0;
-    }
 }
