@@ -26,11 +26,4 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
         pool = IPool(provider.getPool());
         mainContract = _mainContract;
     }
-
-    modifier onlyMainOrOwner() {
-        if (msg.sender != mainContract || msg.sender != owner()) {
-            revert TargetContract__UnauthorizedCaller();
-        }
-        _;
-    }
 }
