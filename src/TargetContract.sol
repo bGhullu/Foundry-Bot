@@ -14,9 +14,6 @@ import "@aave/contracts/interfaces/IPool.sol";
 import "forge-std/console.sol";
 
 contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
-    error TargetContract__UnauthorizedCaller();
-    error TargetContract__CallerMustBeLendingPool();
-
     IPoolAddressesProvider public immutable provider;
     IPool public immutable pool;
     address private immutable mainContract;
