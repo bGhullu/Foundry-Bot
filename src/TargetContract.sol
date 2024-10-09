@@ -20,7 +20,5 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
 
     constructor(address _provider, address _mainContract) Ownable(msg.sender) {
         provider = IPoolAddressesProvider(_provider);
-        pool = IPool(provider.getPool());
-        mainContract = _mainContract;
     }
 }
