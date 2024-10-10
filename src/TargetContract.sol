@@ -18,7 +18,5 @@ contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     IPool public immutable pool;
     address private immutable mainContract;
 
-    constructor(address _provider, address _mainContract) Ownable(msg.sender) {
-        provider = IPoolAddressesProvider(_provider);
-    }
+    constructor(address _provider, address _mainContract) Ownable(msg.sender) {}
 }
