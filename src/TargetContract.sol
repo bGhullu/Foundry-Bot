@@ -15,5 +15,4 @@ import "forge-std/console.sol";
 
 contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
     IPoolAddressesProvider public immutable provider;
-    address private immutable mainContract;
 }
