@@ -13,6 +13,4 @@ import "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "forge-std/console.sol";
 
-contract TargetContract is Ownable, IFlashLoanSimpleReceiver {
-    IPoolAddressesProvider public immutable provider;
-}
+contract TargetContract is Ownable, IFlashLoanSimpleReceiver {}
