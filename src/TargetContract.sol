@@ -11,6 +11,5 @@ import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contract
 import "@aave/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol";
 import "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 import "@aave/contracts/interfaces/IPool.sol";
-import "forge-std/console.sol";
 
 
