@@ -12,4 +12,4 @@ import "@aave/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol";
 import "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 
-contract TargetContract {}
+contract TargetContract is OApp, Ownable {}
