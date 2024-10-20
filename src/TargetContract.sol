@@ -14,4 +14,6 @@ import "@aave/contracts/interfaces/IPool.sol";
 
 contract TargetContract is OApp, Ownable {
     constructor(address mainContract) OApp(mainContract) Ownable(msg.sender) {}
+
+    function initiateArbitrage() internal {}
 }
