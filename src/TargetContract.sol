@@ -18,4 +18,6 @@ contract TargetContract is OApp, Ownable {
     function initiateArbitrage() internal {}
 
     function executeOpeation() internal {}
+
+    function swapDex() internal {}
 }
