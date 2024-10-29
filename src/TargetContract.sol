@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.20;
 
-
-import "@aave/contracts/flashloan/interfaces/IFlashLoanSimpleReceiver.sol";
 import "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 
