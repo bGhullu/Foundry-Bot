@@ -12,5 +12,5 @@ contract TargetContract is OApp, Ownable {
 
     function executeOpeation() internal {}
 
-    function swapDex() internal {}
+   
 }
