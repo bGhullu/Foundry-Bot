@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-contract TargetContract is OApp, Ownable {
+contract TargetContract  {
  
 
 
