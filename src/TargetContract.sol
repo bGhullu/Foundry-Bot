@@ -4,4 +4,5 @@ pragma solidity ^0.8.20;
 
 contract TargetContract is Ownable {
     function executeOperation() internal {}
+    function  initiateArbitrage() internal {}
 }
