@@ -7,9 +7,17 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
+import "@aave/contracts/interfaces/IPool.sol";
 
 contract TargetContract is Ownable, OApp {
     using ECDSA for bytes32;
+
+    IPool public lendingPool;
+    address public mainContract;
+    mapping(address => bytes4) public dexFunctionMapping;
+    mapping(address => bytes4) public bridgeFunctionMapping;
+    mapping(address => bool) public authorizedDexes;
+    mapping(address => bool) public authorizedBridges;
 
     constructor(
         address _endpoint,
