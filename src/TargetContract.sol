@@ -69,6 +69,14 @@ contract TargetContract is Ownable, OApp {
         emit DexFunctionSet(_dexAddress, _functionSelector);
     }
 
+    function authorizedDex(
+        address _dexAddress,
+        bool _status
+    ) external onlyOwner {
+        authorizedDexes[_dexAddress] = _status;
+        emit DexAuthorized(_dexAddress, _status);
+    }
+
     function executeOperation() internal {}
 
     function initiateArbitrage() internal {}
