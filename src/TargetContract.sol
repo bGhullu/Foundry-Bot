@@ -15,6 +15,10 @@ contract TargetContract is Ownable, OApp {
     using ECDSA for bytes32;
 
     error TargetContract__UnauthorizedCaller();
+    error TargetContract__InvalidAddress();
+
+    event DexFunctionSet(address indexed dex, bytes4 functionSelector);
+    event DexAuthorized(address indexed dex, bool status);
 
     IPool public lendingPool;
     address public mainContract;
@@ -75,6 +79,36 @@ contract TargetContract is Ownable, OApp {
     ) external onlyOwner {
         authorizedDexes[_dexAddress] = _status;
         emit DexAuthorized(_dexAddress, _status);
+    }
+
+    function _initializeDexAndBridgeMappings(
+        address[] memory dexAddresses,
+        bytes4[] memory dexFunctionSelectors,
+        address[] memory bridgeAddresses,
+        bytes4[] memory bridgeFunctionSelectors
+    ) public {
+        require(
+            dexAddresses.length == dexFunctionSelectors.length,
+            "DEX addresses and function selectors length mismatch"
+        );
+        require(
+            bridgeAddresses.length == bridgeFunctionSelectors.length,
+            "Bridge addresses and function selectors length mismatch"
+        );
+
+        // Initialize DEX mappings
+        for (uint i = 0; i < dexAddresses.length; i++) {
+            dexFunctionMapping[dexAddresses[i]] = dexFunctionSelectors[i];
+            authorizedDexes[dexAddresses[i]] = true;
+        }
+
+        // Initialize Bridge mappings
+        for (uint i = 0; i < bridgeAddresses.length; i++) {
+            bridgeFunctionMapping[bridgeAddresses[i]] = bridgeFunctionSelectors[
+                i
+            ];
+            authorizedBridges[bridgeAddresses[i]] = true;
+        }
     }
 
     function executeOperation() internal {}
