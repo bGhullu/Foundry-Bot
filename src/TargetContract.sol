@@ -58,6 +58,17 @@ contract TargetContract is Ownable, OApp {
         mainContract = _mainContractAddr;
     }
 
+    function setDexFunction(
+        address _dexAddress,
+        bytes4 _functionSelector
+    ) external onlyOwner {
+        if (_dexAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        dexFunctionMapping[_dexAddress] = _functionSelector;
+        emit DexFunctionSet(_dexAddress, _functionSelector);
+    }
+
     function executeOperation() internal {}
 
     function initiateArbitrage() internal {}
