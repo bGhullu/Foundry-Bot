@@ -51,6 +51,13 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
+    function setMainContract(address _mainContractAddr) external onlyOwner {
+        if (_mainContractAddr == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        mainContract = _mainContractAddr;
+    }
+
     function executeOperation() internal {}
 
     function initiateArbitrage() internal {}
