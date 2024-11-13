@@ -6,6 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import "@aave/contracts/interfaces/IPool.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
@@ -111,9 +112,37 @@ contract TargetContract is Ownable, OApp {
         }
     }
 
-    function executeOperation() internal {}
+    function executeArbitrage(
+        address[] memory _tokens,
+        uint256[] memory _amounts,
+        address[] memory _dexes,
+        address[] memory _bridges,
+        uint16[] memory _chainIds,
+        address _recipient,
+        uint256 _nonce,
+        bytes memory _signature
+    ) internal onlyMainOrOwner {
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                _tokens,
+                _amounts,
+                _dexes,
+                _chainIds,
+                _recipient,
+                _nonce
+            )
+        );
 
-    function initiateArbitrage() internal {}
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(
+            messageHash
+        );
+        address signer = ECDSA.recover(ethSignedMessageHash, _signature);
+        require(signer == owner(), "Invalid Signature");
+
+        _initiateFlashLoan(_tokens, _amounts, _dexes, _bridges, _recipient);
+    }
+
+    function _initiateFlashLoan() internal {}
 
     function swapDex() internal {}
 }
