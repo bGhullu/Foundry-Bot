@@ -142,7 +142,37 @@ contract TargetContract is Ownable, OApp {
         _initiateFlashLoan(_tokens, _amounts, _dexes, _bridges, _recipient);
     }
 
-    function _initiateFlashLoan() internal {}
+    function _initiateFlashLoan(
+        address[] memory _tokens,
+        uint256[] memory _amounts,
+        address[] memory _dexes,
+        address[] memory _bridges,
+        address _recipient
+    ) public {
+        uint256[] memory modes = new uint256[](_tokens.length);
+
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            modes[i] = 0; // 0 means no debt
+        }
+
+        bytes memory params = abi.encode(
+            _tokens,
+            _amounts,
+            _dexes,
+            _bridges,
+            _recipient
+        );
+
+        lendingPool.flashLoan(
+            address(this),
+            _tokens,
+            _amounts,
+            modes,
+            address(this),
+            params,
+            0
+        );
+    }
 
     function swapDex() internal {}
 }
