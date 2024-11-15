@@ -174,5 +174,26 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
-    function swapDex() internal {}
+    function _swapOnDex(
+        address dexAddress,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    ) internal {
+        bytes4 swapFunctionSelector = dexFunctionMapping[dexAddress];
+        require(swapFunctionSelector != bytes4(0), "DEX function not set");
+
+        (bool success, ) = address(this).delegatecall(
+            abi.encodeWithSelector(
+                swapFunctionSelector,
+                tokenIn,
+                tokenOut,
+                amountIn,
+                dexAddress
+            )
+        );
+
+        require(success, "Swap on DEX failed");
+        emit SwapExecuted(dexAddress, tokenIn, tokenOut, amountIn);
+    }
 }
