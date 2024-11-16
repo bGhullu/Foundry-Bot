@@ -196,4 +196,31 @@ contract TargetContract is Ownable, OApp {
         require(success, "Swap on DEX failed");
         emit SwapExecuted(dexAddress, tokenIn, tokenOut, amountIn);
     }
+
+    function _repayFlashLoan(
+        address[] memory assets,
+        uint256[] memory amounts,
+        uint256[] memory premiums
+    ) internal {
+        console.log("Assets length:", assets.length);
+        console.log("Amounts length:", amounts.length);
+        require(
+            assets.length == amounts.length,
+            "Mismatched assets and amounts"
+        );
+        require(
+            assets.length == premiums.length,
+            "Mismatched assets and premiums"
+        );
+
+        for (uint i = 0; i < assets.length; i++) {
+            // Repay each flash loan
+            uint amountOwed = amounts[i] + premiums[i];
+            console.log("Repaying asset:", assets[i]);
+            console.log("Total amount to repay:", amountOwed);
+            IERC20(assets[i]).approve(address(lendingPool), amountOwed);
+            // Assuming the function to repay looks something like this:
+            // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
+        }
+    }
 }
