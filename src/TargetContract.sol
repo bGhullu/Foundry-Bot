@@ -223,4 +223,31 @@ contract TargetContract is Ownable, OApp {
             // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
         }
     }
+
+    function swapOnUniswapV2(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) public {
+        uint256 deadline = block.timestamp + 30;
+        uint256 swap_amount_out = 0;
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        TransferHelper.safeApprove(
+            tokenIn,
+            address(dexRouterAddress),
+            amountIn
+        );
+        swap_amount_out = IUniswapV2Router02(dexRouterAddress)
+            .swapExactTokensForTokens({
+                amountIn: amountIn,
+                amountOutMin: 0,
+                path: path,
+                to: address(this),
+                deadline: deadline
+            })[1];
+    }
 }
