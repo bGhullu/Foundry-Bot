@@ -250,4 +250,46 @@ contract TargetContract is Ownable, OApp {
                 deadline: deadline
             })[1];
     }
+    function swapOnUniswapV3(
+        address tokenIn,
+        address tokenOut,
+        uint24 fee,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) public {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+            .ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: fee,
+                recipient: address(this),
+                deadline: block.timestamp + 200,
+                amountIn: amountIn,
+                amountOutMinimum: 1,
+                sqrtPriceLimitX96: 0
+            });
+        ISwapRouter(dexRouterAddress).exactInputSingle(params);
+    }
+
+    function swapOnSushiSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        ISushiSwapRouter(dexRouterAddress).swapExactTokensForTokens(
+            amountIn,
+            1,
+            path,
+            address(this),
+            block.timestamp + 200
+        );
+    }
+
 }
