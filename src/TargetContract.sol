@@ -272,18 +272,18 @@ contract TargetContract is Ownable, OApp {
         ISwapRouter(dexRouterAddress).exactInputSingle(params);
     }
 
-    function swapOnSushiSwap(
+       function swapOnPancakeSwap(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         address dexRouterAddress
-    ) internal {
+    ) public {
         IERC20(tokenIn).approve(dexRouterAddress, amountIn);
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
-        ISushiSwapRouter(dexRouterAddress).swapExactTokensForTokens(
+        IPankcakeRouter(dexRouterAddress).swapExactTokensForTokens(
             amountIn,
             1,
             path,
@@ -292,4 +292,5 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
+  
 }
