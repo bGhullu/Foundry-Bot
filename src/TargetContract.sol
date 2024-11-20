@@ -11,6 +11,11 @@ import {OApp, Origin, MessagingFee} from "@layerzerolabs/lz-evm-oapp-v2/contract
 import "@aave/contracts/interfaces/IPool.sol";
 import "@uniswapV2/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswapV3/contracts/interfaces/ISwapRouter.sol";
+import {TransferHelper} from "@uniswapV3/contracts/libraries/TransferHelper.sol";
+
+interface IPankcakeRouter is IUniswapV2Router02 {}
+
+interface ISushiSwapRouter is IUniswapV2Router02 {}
 
 contract TargetContract is Ownable, OApp {
     using ECDSA for bytes32;
@@ -20,6 +25,12 @@ contract TargetContract is Ownable, OApp {
 
     event DexFunctionSet(address indexed dex, bytes4 functionSelector);
     event DexAuthorized(address indexed dex, bool status);
+    event SwapExecuted(
+        address indexed dex,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn
+    );
 
     IPool public lendingPool;
     address public mainContract;
@@ -202,8 +213,6 @@ contract TargetContract is Ownable, OApp {
         uint256[] memory amounts,
         uint256[] memory premiums
     ) internal {
-        console.log("Assets length:", assets.length);
-        console.log("Amounts length:", amounts.length);
         require(
             assets.length == amounts.length,
             "Mismatched assets and amounts"
@@ -216,8 +225,7 @@ contract TargetContract is Ownable, OApp {
         for (uint i = 0; i < assets.length; i++) {
             // Repay each flash loan
             uint amountOwed = amounts[i] + premiums[i];
-            console.log("Repaying asset:", assets[i]);
-            console.log("Total amount to repay:", amountOwed);
+
             IERC20(assets[i]).approve(address(lendingPool), amountOwed);
             // Assuming the function to repay looks something like this:
             // IERC20(assets[i]).transfer(address(lendingPool), amountOwed);
@@ -250,6 +258,7 @@ contract TargetContract is Ownable, OApp {
                 deadline: deadline
             })[1];
     }
+
     function swapOnUniswapV3(
         address tokenIn,
         address tokenOut,
@@ -272,7 +281,27 @@ contract TargetContract is Ownable, OApp {
         ISwapRouter(dexRouterAddress).exactInputSingle(params);
     }
 
-       function swapOnPancakeSwap(
+    function swapOnSushiSwap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address dexRouterAddress
+    ) internal {
+        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
+
+        ISushiSwapRouter(dexRouterAddress).swapExactTokensForTokens(
+            amountIn,
+            1,
+            path,
+            address(this),
+            block.timestamp + 200
+        );
+    }
+
+    function swapOnPancakeSwap(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -291,6 +320,4 @@ contract TargetContract is Ownable, OApp {
             block.timestamp + 200
         );
     }
-
-  
 }
