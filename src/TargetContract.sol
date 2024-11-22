@@ -410,4 +410,12 @@ contract TargetContract is Ownable, OApp {
             block.timestamp + 200
         );
     }
+
+    function ADDRESSES_PROVIDER()
+        external
+        pure
+        returns (IPoolAddressesProvider)
+    {
+        return IPoolAddressesProvider(address(0));
+    }
 }
