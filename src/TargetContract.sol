@@ -275,6 +275,20 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
+    function _waitForBridgeCompletion(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {
+        emit BridgeInitiated(token, recipient, destinationChainId);
+
+        _notifyMainContractBridgeInitiated(
+            token,
+            recipient,
+            destinationChainId
+        );
+    }
+
     function _swapOnDex(
         address dexAddress,
         address tokenIn,
