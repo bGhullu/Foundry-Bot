@@ -289,6 +289,19 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
+      function _notifyMainContractBridgeInitiated(
+        address token,
+        address recipient,
+        uint16 destinationChainId
+    ) internal {
+        bytes memory payload = abi.encode(token, recipient, destinationChainId);
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
+    }
+
     function _swapOnDex(
         address dexAddress,
         address tokenIn,
