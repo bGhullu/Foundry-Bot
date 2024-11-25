@@ -289,7 +289,7 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
-      function _notifyMainContractBridgeInitiated(
+    function _notifyMainContractBridgeInitiated(
         address token,
         address recipient,
         uint16 destinationChainId
@@ -300,6 +300,23 @@ contract TargetContract is Ownable, OApp {
         MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
 
         _lzSend(destinationChainId, payload, options, fee, payable(msg.sender));
+    }
+
+    function _notifyMainContractTokensBridgedBack(
+        address[] memory assets,
+        uint256[] memory amounts,
+        address recipient,
+        uint16 originalChainId
+    ) internal {
+        bytes memory payload = abi.encode(
+            true,
+            abi.encode(assets, amounts, recipient, originalChainId)
+        );
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(originalChainId, payload, options, fee, payable(msg.sender));
     }
 
     function _swapOnDex(

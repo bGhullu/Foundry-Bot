@@ -415,6 +415,23 @@ contract TargetArbitrageContract is Ownable, OApp, IFlashLoanReceiver {
         require(success, "Bridge failed");
     }
 
+    function _notifyMainContractTokensBridgedBack(
+        address[] memory assets,
+        uint256[] memory amounts,
+        address recipient,
+        uint16 originalChainId
+    ) internal {
+        bytes memory payload = abi.encode(
+            true,
+            abi.encode(assets, amounts, recipient, originalChainId)
+        );
+
+        bytes memory options = abi.encode(uint16(1), uint256(200000));
+        MessagingFee memory fee = MessagingFee({nativeFee: 0, lzTokenFee: 0});
+
+        _lzSend(originalChainId, payload, options, fee, payable(msg.sender));
+    }
+
     function swapOnUniswapV2(
         address tokenIn,
         address tokenOut,
