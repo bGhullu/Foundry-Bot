@@ -33,6 +33,12 @@ contract TargetContract is Ownable, OApp {
         uint256 amountIn
     );
 
+    event FlashLoanRepaid(
+        address[] assets,
+        uint256[] amounts,
+        uint256[] premiums
+    );
+
     IPool public lendingPool;
     address public mainContract;
     mapping(address => bytes4) public dexFunctionMapping;
