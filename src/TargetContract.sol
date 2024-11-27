@@ -32,6 +32,12 @@ contract TargetContract is Ownable, OApp {
         address tokenOut,
         uint256 amountIn
     );
+        event BridgeExecuted(
+        address indexed bridge,
+        address token,
+        uint256 amount,
+        uint16 chainId
+    );
 
     event FlashLoanRepaid(
         address[] assets,
