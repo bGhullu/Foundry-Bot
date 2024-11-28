@@ -32,7 +32,7 @@ contract TargetContract is Ownable, OApp {
         address tokenOut,
         uint256 amountIn
     );
-        event BridgeExecuted(
+    event BridgeExecuted(
         address indexed bridge,
         address token,
         uint256 amount,
@@ -43,6 +43,11 @@ contract TargetContract is Ownable, OApp {
         address[] assets,
         uint256[] amounts,
         uint256[] premiums
+    );
+    event BridgeInitiated(
+        address indexed token,
+        address recipient,
+        uint16 destinationChainId
     );
 
     IPool public lendingPool;
