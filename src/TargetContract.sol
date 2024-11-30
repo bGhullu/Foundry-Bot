@@ -49,6 +49,11 @@ contract TargetContract is Ownable, OApp {
         address recipient,
         uint16 destinationChainId
     );
+       event TokensBridgedBack(
+        address indexed token,
+        uint256 amount,
+        uint16 originalChainId
+    );
 
     IPool public lendingPool;
     address public mainContract;
