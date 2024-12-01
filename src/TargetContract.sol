@@ -22,6 +22,10 @@ contract TargetContract is Ownable, OApp {
 
     error TargetContract__UnauthorizedCaller();
     error TargetContract__InvalidAddress();
+    error TargetContract__NotOwner();
+    error TargetContract__CallerMustBeLendingPool();
+    error TargetContract__UnauthorizedDex();
+    error TargetContract__UnauthorizedBridge();
 
     event CrossChainSync(uint16 chainId, bytes32 syncId, string status);
     event DexFunctionSet(address indexed dex, bytes4 functionSelector);
@@ -49,7 +53,7 @@ contract TargetContract is Ownable, OApp {
         address recipient,
         uint16 destinationChainId
     );
-       event TokensBridgedBack(
+    event TokensBridgedBack(
         address indexed token,
         uint256 amount,
         uint16 originalChainId
