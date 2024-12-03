@@ -113,6 +113,17 @@ contract TargetContract is Ownable, OApp {
         emit DexFunctionSet(_dexAddress, _functionSelector);
     }
 
+    function setBridgeFunction(
+        address _bridgeAddress,
+        bytes4 _functionSelector
+    ) external onlyOwner {
+        if (_bridgeAddress == address(0)) {
+            revert TargetContract__InvalidAddress();
+        }
+        bridgeFunctionMapping[_bridgeAddress] = _functionSelector;
+        emit BridgeFunctionSet(_bridgeAddress, _functionSelector);
+    }
+
     function authorizedDex(
         address _dexAddress,
         bool _status
