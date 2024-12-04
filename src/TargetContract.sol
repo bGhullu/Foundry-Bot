@@ -251,6 +251,83 @@ contract TargetContract is Ownable, OApp {
         }
     }
 
+    function _createNextPayload(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        address[] memory dexes,
+        address[] memory bridges,
+        uint16[] memory chainIds,
+        address recipient,
+        uint256 nonce,
+        bytes memory signature
+    ) internal pure returns (bytes memory) {
+        if (chainIds.length > 1) {
+            uint operationsPerformed = 0;
+
+            // Count how many operations are performed on the current chain
+            for (uint i = 0; i < chainIds.length; i++) {
+                if (chainIds[i] == chainIds[0]) {
+                    operationsPerformed++;
+                } else {
+                    break;
+                }
+            }
+
+            uint16[] memory nextChainIds = new uint16[](
+                chainIds.length - operationsPerformed
+            );
+            address[] memory nextDexes = new address[](
+                dexes.length - operationsPerformed
+            );
+            address[] memory nextBridges = new address[](
+                bridges.length -
+                    (
+                        operationsPerformed > 1
+                            ? operationsPerformed - 1
+                            : operationsPerformed
+                    )
+            );
+            address[] memory nextTokens = new address[](
+                tokens.length - operationsPerformed
+            );
+            uint256[] memory nextAmounts = new uint256[](
+                amounts.length - operationsPerformed
+            );
+
+            for (uint i = 0; i < nextChainIds.length; i++) {
+                nextChainIds[i] = chainIds[i + operationsPerformed];
+                nextDexes[i] = dexes[i + operationsPerformed];
+                nextTokens[i] = tokens[i + operationsPerformed];
+                nextAmounts[i] = amounts[i + operationsPerformed];
+            }
+
+            for (uint i = 0; i < nextBridges.length; i++) {
+                nextBridges[i] = bridges[
+                    i +
+                        (
+                            operationsPerformed > 1
+                                ? operationsPerformed - 1
+                                : operationsPerformed
+                        )
+                ];
+            }
+
+            return
+                abi.encode(
+                    nextTokens,
+                    nextAmounts,
+                    nextDexes,
+                    nextBridges,
+                    nextChainIds,
+                    recipient,
+                    nonce,
+                    signature
+                );
+        } else {
+            return ""; // Return an empty payload if there are no further operations
+        }
+    }
+
     function executeArbitrage(
         address[] memory _tokens,
         uint256[] memory _amounts,
