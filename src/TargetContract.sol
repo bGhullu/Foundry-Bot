@@ -328,6 +328,118 @@ contract TargetContract is Ownable, OApp {
         }
     }
 
+
+    function filterDexesByChainId(
+        uint16 currentChainId,
+        address[] memory dexes,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint16[] memory chainIds
+    )
+        internal
+        pure
+        returns (
+            address[] memory filteredDexes,
+            address[] memory filteredTokens,
+            uint256[] memory filteredAmounts
+        )
+    {
+        uint count = 0;
+
+        // Count how many dexes are for the current chainId
+        for (uint i = 0; i < chainIds.length; i++) {
+            if (chainIds[i] == currentChainId) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        console.log("Count:", count);
+
+        // Initialize the filtered arrays
+        filteredDexes = new address[](count);
+        filteredTokens = new address[](count + 1); // +1 to include the final output token
+        filteredAmounts = new uint256[](count);
+
+        // Populate the filtered arrays
+
+        for (uint i = 0; i < count; i++) {
+            if (chainIds[i] == currentChainId) {
+                console.log("Index:", i);
+
+                filteredDexes[i] = dexes[i];
+                filteredTokens[i] = tokens[i];
+                filteredAmounts[i] = amounts[i];
+                // Ensure we don't access out-of-bounds
+                console.log("Filtered DEX", i, "is", filteredDexes[i]);
+                console.log("Filtered Token In", i, "is", filteredTokens[i]);
+                if (i < count - 1) {
+                    filteredTokens[i + 1] = tokens[i + 1];
+                }
+            }
+        }
+        console.log("Final Filtered Tokens Length:", filteredTokens.length);
+
+        // Ensure the last token is correctly assigned if it's a multi-chain operation
+        if (count < tokens.length) {
+            filteredTokens[count] = tokens[count];
+        } else {
+            filteredTokens[count] = tokens[tokens.length - 1];
+        }
+
+        require(
+            filteredDexes.length == filteredTokens.length - 1,
+            "Mismatch between dexes and tokens"
+        );
+
+        console.log("Final Filtered Dexes Length:", filteredDexes.length);
+        console.log("Final Filtered Tokens Length:", filteredTokens.length);
+        console.log("Final Filtered Amounts Length:", filteredAmounts.length);
+        // Set the final output token
+        // filteredTokens[count] = tokens[tokens.length - 1];
+    }
+
+        // Count how many dexes are for the current chainId
+        for (uint i = 0; i < chainIds.length; i++) {
+            if (chainIds[i] == currentChainId) {
+                count++;
+            }
+        }
+
+        // Initialize the filtered arrays
+        filteredDexes = new address[](count);
+        filteredTokens = new address[](count + 1); // +1 to include the final output token
+        filteredAmounts = new uint256[](count);
+
+        // Populate the filtered arrays
+        uint index = 0;
+        for (uint i = 0; i < chainIds.length; i++) {
+            if (chainIds[i] == currentChainId) {
+                filteredDexes[index] = dexes[i];
+                filteredTokens[index] = tokens[i];
+                // Handle tokens assignment:
+                if (index == 0) {
+                    // For the first dex, assign the start token and the first output token
+
+                    if (i + 1 < tokens.length) {
+                        filteredTokens[index + 1] = tokens[i + 1];
+                    }
+                } else {
+                    // For subsequent dexes, assign the corresponding tokens
+                    if (i + 1 < tokens.length) {
+                        filteredTokens[index + 1] = tokens[i + 1];
+                    }
+                }
+
+                filteredAmounts[index] = amounts[i];
+                index++;
+            }
+        }
+
+        // Ensure the last token is correctly assigned if it's a multi-chain operation
+        filteredTokens[count] = tokens[tokens.length - 1];
+    }
+
     function executeArbitrage(
         address[] memory _tokens,
         uint256[] memory _amounts,
