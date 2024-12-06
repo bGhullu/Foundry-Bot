@@ -689,4 +689,103 @@ contract TargetContract is Ownable, OApp {
     {
         return IPoolAddressesProvider(address(0));
     }
+
+
+    function testLzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _payload,
+        address _executor,
+        bytes calldata _extraData
+    ) external {
+        (
+            address[] memory tokens,
+            uint256[] memory amounts,
+            address[] memory dexes,
+            address[] memory bridges,
+            uint16[] memory chainIds,
+            address recipient,
+            uint256 nonce,
+            bytes memory signature
+        ) = abi.decode(
+                _payload,
+                (
+                    address[],
+                    uint256[],
+                    address[],
+                    address[],
+                    uint16[],
+                    address,
+                    uint256,
+                    bytes
+                )
+            );
+
+        // Example: Log or assert the decoded values (for testing purposes)
+        console.log("Received payload for cross-chain operation");
+
+        // Process the first swap on the current chain
+        if (dexes.length > 0 && chainIds[0] == uint16(block.chainid)) {
+            _swapOnDex(dexes[0], tokens[0], tokens[1], amounts[0]);
+        }
+
+        // If there's a bridge operation to perform, handle it
+        if (bridges.length > 0 && chainIds.length > 1) {
+            _executeBridge(
+                bridges[0],
+                tokens[1],
+                amounts[1],
+                chainIds[1],
+                recipient
+            );
+
+            // Prepare the next payload for the subsequent chain
+            uint16[] memory nextChainIds = new uint16[](chainIds.length - 1);
+            address[] memory nextTokens = new address[](tokens.length - 1);
+            uint256[] memory nextAmounts = new uint256[](amounts.length - 1);
+            address[] memory nextDexes = new address[](dexes.length - 1);
+            address[] memory nextBridges = new address[](bridges.length - 1);
+
+            // Populate the next operation's details
+            for (uint i = 1; i < chainIds.length; i++) {
+                nextChainIds[i - 1] = chainIds[i];
+                nextTokens[i - 1] = tokens[i];
+                nextAmounts[i - 1] = amounts[i];
+                if (i < dexes.length) {
+                    nextDexes[i - 1] = dexes[i];
+                }
+                if (i < bridges.length) {
+                    nextBridges[i - 1] = bridges[i];
+                }
+            }
+
+            // Encode the next payload
+            bytes memory nextPayload = abi.encode(
+                nextTokens,
+                nextAmounts,
+                nextDexes,
+                nextBridges,
+                nextChainIds,
+                recipient,
+                nonce,
+                signature
+            );
+
+            // Send the payload to the next chain (using a mocked LayerZero function)
+            _lzSend(
+                chainIds[1],
+                nextPayload,
+                abi.encode(uint16(1), uint256(200000)), // Simulating adapterParams
+                MessagingFee({nativeFee: 0, lzTokenFee: 0}),
+                payable(msg.sender)
+            );
+        } else if (dexes.length > 1) {
+            // If no bridging is required and there are more swaps to perform on the same chain
+            _swapOnDex(dexes[1], tokens[1], tokens[2], amounts[1]);
+        }
+
+        // Log the completion of the operation
+        console.log("Completed cross-chain operation");
+    }
+
 }
