@@ -467,6 +467,26 @@ contract TargetContract is Ownable, OApp {
         address signer = ECDSA.recover(ethSignedMessageHash, _signature);
         require(signer == owner(), "Invalid Signature");
 
+         Filter dexes, tokens, and amounts for the current chain
+        (
+            address[] memory currentDexes,
+            address[] memory currentTokens,
+            uint256[] memory currentAmounts
+        ) = filterDexesByChainId(
+                uint16(block.chainid),
+                _dexes,
+                _tokens,
+                _amounts,
+                _chainIds
+            );
+
+        _initiateFlashLoan(
+            currentTokens,
+            currentAmounts,
+            currentDexes,
+            _recipient
+        );
+
         _initiateFlashLoan(_tokens, _amounts, _dexes, _bridges, _recipient);
     }
 
