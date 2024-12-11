@@ -688,10 +688,7 @@ contract TargetContract is Ownable, OApp {
         uint256 amountIn,
         address dexRouterAddress
     ) public {
-        IERC20(tokenIn).approve(dexRouterAddress, amountIn);
-        address[] memory path = new address[](2);
-        path[0] = tokenIn;
-        path[1] = tokenOut;
+      
 
     }
 }
