@@ -692,13 +692,5 @@ contract TargetContract is Ownable, OApp {
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
-
-        IPankcakeRouter(dexRouterAddress).swapExactTokensForTokens(
-            amountIn,
-            1,
-            path,
-            address(this),
-            block.timestamp + 200
-        );
     }
 }
