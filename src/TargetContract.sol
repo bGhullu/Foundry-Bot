@@ -682,12 +682,4 @@ contract TargetContract is Ownable, OApp {
         );
     }
 
-    function swapOnPancakeSwap(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        address dexRouterAddress
-    ) public {
-   
-    }
 }
